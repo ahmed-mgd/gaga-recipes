@@ -1,10 +1,9 @@
 from elasticsearch import Elasticsearch
+from data_processing import load_and_process_recipes
 
 #once you get elastic runnning save info and add to .env and load here
 ES_HOST = "http://localhost:9200"
-ES_USER = "elastic"
-ES_PASSWORD = "r70giGYw"
-ES_FINGERPRINT = "bjhOX1hwa0JBalFpcDl4SUFQdFM6dDNJUUhMMGsxR0VqYVZGZGh0MUlvQQ=="
+ES_FINGERPRINT = ""
 
 try:
     client = Elasticsearch(
@@ -25,8 +24,32 @@ INDEX_NAME = "recipes"
 MAPPING = {
     "properties": {
         "name": {"type": "text"},
-        "calories": {"type": "integer"},
-        "protein_grams": {"type": "integer"}
+        "prep_time": {"type": "text"},
+        "cook_time": {"type": "text"},
+        "total_time": {"type": "text"},
+        "servings": {"type": "text"},
+        "yield": {"type": "text"},
+        "ingredients": {"type": "text"},
+        "directions": {"type": "text"},
+        "rating": {"type": "float"},
+        "url": {"type": "keyword"},
+        "cuisine_path": {"type": "text"},
+        "nutrition": {"type": "text"},
+        "calories": {"type": "float"},
+        "protein_grams": {"type": "float"},
+        "fat_grams": {"type": "float"},
+        "saturated_fat_grams": {"type": "float"},
+        "cholesterol_mg": {"type": "float"},
+        "sodium_mg": {"type": "float"},
+        "carbs_grams": {"type": "float"},
+        "fiber_grams": {"type": "float"},
+        "sugar_grams": {"type": "float"},
+        "vitamin_c_mg": {"type": "float"},
+        "calcium_mg": {"type": "float"},
+        "iron_mg": {"type": "float"},
+        "potassium_mg": {"type": "float"},
+        "timing": {"type": "text"},
+        "img_src": {"type": "keyword"}
     }
 }
 
@@ -38,17 +61,10 @@ if client.indices.exists(index=INDEX_NAME):
 print(f"Creating new index '{INDEX_NAME}'")
 client.indices.create(index=INDEX_NAME, mappings=MAPPING)
 
-
-#random chatgpt mock data
-print("Indexing mock recipes...")
-mock_recipes = [
-    {"name": "High-Protein Chicken Bowl", "calories": 450, "protein_grams": 40},
-    {"name": "Simple Lentil Soup", "calories": 320, "protein_grams": 18},
-    {"name": "Keto Egg Scramble", "calories": 550, "protein_grams": 25}
-]
+recipes = load_and_process_recipes()
 
 # adds the recipes to elasticsearch
-for i, recipe in enumerate(mock_recipes):
+for i, recipe in enumerate(recipes):
     # The id is a unique identifier for the document
     client.index(index=INDEX_NAME, id=i, document=recipe)
 
@@ -86,7 +102,7 @@ else:
         print(
             f"  - Name: {recipe_data['name']}\n"
             f"    Calories: {recipe_data['calories']} kcal\n"
-            f"    Protein: {recipe_data['protein_grams']}g\n"
+            f"    Protein: {recipe_data['protein_grams']} g\n"
         )
 
 # EXMAPLE 2 this time with typo(fuzzy) handling. fuzzy measure character differences to determine typos
