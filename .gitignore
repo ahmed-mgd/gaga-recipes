@@ -8,3 +8,7 @@ frontend/node_modules/
 frontend/build/
 .DS_Store
 npm-debug.log*
+
+#Firebase credentials
+team-gaga-recipes-firebase-adminsdk-fbsvc-efc7c23d45.json
+.env
