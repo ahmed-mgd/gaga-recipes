@@ -1,52 +1,101 @@
-import { useState } from "react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { useState } from "react"
+import { Button } from "./ui/button"
+import { Input } from "./ui/input"
+import { Label } from "./ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs"
+import { ImageWithFallback } from "./figma/ImageWithFallback"
+
+import {
+  doSignInWithEmailAndPassword,
+  doCreateUserWithEmailAndPassword,
+  doSignInWithGoogle
+} from "../firebase/auth"
 
 interface AuthScreenProps {
-  onAuthComplete: () => void;
+  onAuthComplete: () => void
 }
 
 export function AuthScreen({ onAuthComplete }: AuthScreenProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    // Simulate auth process
-    setTimeout(() => {
-      setIsLoading(false);
-      onAuthComplete();
-    }, 1500);
-  };
+  const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string>("")
 
-  const handleGoogleAuth = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      onAuthComplete();
-    }, 1000);
-  };
+  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = e.currentTarget
+    const email = (form.querySelector("#signin-email") as HTMLInputElement).value
+    const password = (form.querySelector("#signin-password") as HTMLInputElement).value
+
+    setIsLoading(true)
+    setErrorMessage("")
+    try {
+      await doSignInWithEmailAndPassword(email, password)
+      onAuthComplete()
+    } catch (err: unknown) {
+      if (err instanceof Error) setErrorMessage(err.message)
+      else setErrorMessage("An unknown error occurred")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = e.currentTarget
+    const email = (form.querySelector("#signup-email") as HTMLInputElement).value
+    const password = (form.querySelector("#signup-password") as HTMLInputElement).value
+    const confirmPassword = (form.querySelector("#confirm-password") as HTMLInputElement).value
+
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match")
+      return
+    }
+
+    setIsLoading(true)
+    setErrorMessage("")
+    try {
+      await doCreateUserWithEmailAndPassword(email, password)
+      onAuthComplete()
+    } catch (err: unknown) {
+      if (err instanceof Error) setErrorMessage(err.message)
+      else setErrorMessage("An unknown error occurred")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleAuth = async () => {
+    setIsLoading(true)
+    setErrorMessage("")
+    try {
+      await doSignInWithGoogle()
+      onAuthComplete()
+    } catch (err: unknown) {
+      if (err instanceof Error) setErrorMessage(err.message)
+      else setErrorMessage("An unknown error occurred")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex">
-      {/* Left side - Branding/Illustration */}
+      {/* Left side */}
       <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-primary/10 to-primary/5 items-center justify-center p-12">
         <div className="max-w-md text-center">
           <ImageWithFallback 
-            src="https://images.unsplash.com/photo-1619524537696-3309f8843e92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxudXRyaXRpb24lMjBhcHAlMjBpbGx1c3RyYXRpb258ZW58MXx8fHwxNzU4MDYwNjg1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+            src="https://images.unsplash.com/photo-1619524537696-3309f8843e92?..."
             alt="Meal planning illustration" 
             className="w-80 h-80 object-cover rounded-2xl mb-8 mx-auto"
           />
           <h2 className="text-2xl mb-4 text-foreground">Smart Meal Planning</h2>
-          <p className="text-muted-foreground">Plan your meals, track nutrition, and achieve your health goals with personalized recommendations.</p>
+          <p className="text-muted-foreground">
+            Plan your meals, track nutrition, and achieve your health goals with personalized recommendations.
+          </p>
         </div>
       </div>
 
-      {/* Right side - Auth Forms */}
+      {/* Right side */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <Tabs defaultValue="signin" className="w-full">
@@ -54,35 +103,32 @@ export function AuthScreen({ onAuthComplete }: AuthScreenProps) {
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
-            
+
+            {/* Sign In */}
             <TabsContent value="signin">
               <Card>
                 <CardHeader>
                   <CardTitle>Welcome back</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleAuth} className="space-y-4">
+                  <form onSubmit={handleSignIn} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="signin-email">Email</Label>
-                      <Input
-                        id="signin-email"
-                        type="email"
-                        placeholder="Enter your email"
-                        required
-                      />
+                      <Input id="signin-email" type="email" required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="signin-password">Password</Label>
-                      <Input
-                        id="signin-password"
-                        type="password"
-                        placeholder="Enter your password"
-                        required
-                      />
+                      <Input id="signin-password" type="password" required />
                     </div>
+
+                    {errorMessage && (
+                      <p className="text-sm text-red-600">{errorMessage}</p>
+                    )}
+
                     <Button type="submit" className="w-full" disabled={isLoading}>
                       {isLoading ? "Signing in..." : "Sign In"}
                     </Button>
+
                     <div className="relative">
                       <div className="absolute inset-0 flex items-center">
                         <span className="w-full border-t" />
@@ -93,9 +139,10 @@ export function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                         </span>
                       </div>
                     </div>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+
+                    <Button
+                      type="button"
+                      variant="outline"
                       className="w-full"
                       onClick={handleGoogleAuth}
                       disabled={isLoading}
@@ -106,44 +153,36 @@ export function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
+            {/* Sign Up */}
             <TabsContent value="signup">
               <Card>
                 <CardHeader>
                   <CardTitle>Create account</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleAuth} className="space-y-4">
+                  <form onSubmit={handleSignUp} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="signup-email">Email</Label>
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        placeholder="Enter your email"
-                        required
-                      />
+                      <Input id="signup-email" type="email" required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="signup-password">Password</Label>
-                      <Input
-                        id="signup-password"
-                        type="password"
-                        placeholder="Create a password"
-                        required
-                      />
+                      <Input id="signup-password" type="password" required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="confirm-password">Confirm Password</Label>
-                      <Input
-                        id="confirm-password"
-                        type="password"
-                        placeholder="Confirm your password"
-                        required
-                      />
+                      <Input id="confirm-password" type="password" required />
                     </div>
+
+                    {errorMessage && (
+                      <p className="text-sm text-red-600">{errorMessage}</p>
+                    )}
+
                     <Button type="submit" className="w-full" disabled={isLoading}>
                       {isLoading ? "Creating account..." : "Sign Up"}
                     </Button>
+
                     <div className="relative">
                       <div className="absolute inset-0 flex items-center">
                         <span className="w-full border-t" />
@@ -154,9 +193,10 @@ export function AuthScreen({ onAuthComplete }: AuthScreenProps) {
                         </span>
                       </div>
                     </div>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+
+                    <Button
+                      type="button"
+                      variant="outline"
                       className="w-full"
                       onClick={handleGoogleAuth}
                       disabled={isLoading}
@@ -171,5 +211,5 @@ export function AuthScreen({ onAuthComplete }: AuthScreenProps) {
         </div>
       </div>
     </div>
-  );
+  )
 }
