@@ -1,15 +1,20 @@
+import os
 from elasticsearch import Elasticsearch
+from dotenv import load_dotenv
+
+load_dotenv()
 
 #once you get elastic runnning save info and add to .env and load here
 ES_HOST = "http://localhost:9200"
 ES_USER = "elastic"
 ES_PASSWORD = "123456"
-ES_FINGERPRINT = "N3VyZWdaa0I1cDF5QXBlYnJIZEM6bF9nNkdVRnptMER1X09PWHVkYVNOUQ=="
+ES_FINGERPRINT = ""
+ES_API_KEY = os.getenv("ES_API_KEY")
 
 try:
     client = Elasticsearch(
         ES_HOST,
-        api_key=(ES_FINGERPRINT)
+        api_key=(ES_API_KEY)
     )
     if not client.ping():
         raise ConnectionError("couldnt connect")
