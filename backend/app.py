@@ -1,11 +1,12 @@
 # backend/app.py
 from dotenv import load_dotenv
 load_dotenv()
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
+from elastic import client, INDEX_NAME
 import os
 
 # Configuration
@@ -51,6 +52,36 @@ def get_user_demographics(user_id):
             return {"error": "User not found"}, 404
     except Exception as e:
         return {"error": str(e)}, 500
+    
+@app.route('/api/search')
+def search_recipes():
+    query = request.args.get('q', "")
+    if not query:
+        return jsonify([])
+
+    try:
+        search_body = {
+            "query": {
+                "multi_match": {
+                    "query": query,
+                    "fields": ["name", "ingredients"],
+                    "fuzziness": "AUTO"
+                }
+            }
+        }
+        
+        response = client.search(
+            index=INDEX_NAME,
+            body=search_body
+        )
+        
+        results = [hit['_source'] for hit in response['hits']['hits']]
+        return jsonify(results)
+        
+    except Exception as e:
+        return jsonify({"error": f"An error occurred during search: {e}"}), 500
+
 
 if __name__ == '__main__':
     app.run()
+
