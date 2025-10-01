@@ -6,6 +6,7 @@ import { MealPlan } from "./components/MealPlan";
 import { RecipeSearch } from "./components/RecipeSearch";
 import { AuthScreen } from "./components/AuthScreen";
 import NotFound from "./components/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   return (
@@ -16,7 +17,14 @@ export default function App() {
         <Route path="/profile-setup" element={<ProfileSetup />} />
 
         {/* Main app routes with layout */}
-        <Route path="/" element={<AppLayout />}>
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="meal-plan" element={<MealPlan />} />
