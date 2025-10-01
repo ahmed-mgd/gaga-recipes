@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -9,10 +9,9 @@ import { Checkbox } from "./ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
 import { X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-interface ProfileSetupProps {
-  onComplete: () => void;
-}
+interface ProfileSetupProps {}
 
 interface ProfileData {
   age: string;
@@ -25,7 +24,8 @@ interface ProfileData {
   urgentIngredients: string[];
 }
 
-export function ProfileSetup({ onComplete }: ProfileSetupProps) {
+export function ProfileSetup() {
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [profileData, setProfileData] = useState<ProfileData>({
     age: "",
@@ -46,7 +46,7 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     } else {
-      onComplete();
+      navigate("/dashboard");
     }
   };
 
@@ -132,7 +132,11 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender</Label>
-                  <Select value={profileData.gender} onValueChange={(value) => setProfileData(prev => ({ ...prev, gender: value }))}>
+                  <Select 
+                    value={profileData.gender} 
+                    onValueChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                    setProfileData(prev => ({ ...prev, gender: e.target.value }))}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
@@ -170,7 +174,9 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
             {currentStep === 2 && (
               <RadioGroup 
                 value={profileData.activityLevel} 
-                onValueChange={(value) => setProfileData(prev => ({ ...prev, activityLevel: value }))}
+                onValueChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  setProfileData(prev => ({ ...prev, activityLevel: e.target.value }))
+                }
                 className="space-y-4"
               >
                 {activityLevels.map((level) => (
@@ -194,7 +200,9 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
                     <Checkbox
                       id={restriction}
                       checked={profileData.dietaryRestrictions.includes(restriction)}
-                      onCheckedChange={(checked) => handleDietaryRestrictionChange(restriction, !!checked)}
+                      onCheckedChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                        handleDietaryRestrictionChange(restriction, !!e.target.checked)
+                      }
                     />
                     <Label htmlFor={restriction} className="cursor-pointer flex-1">
                       {restriction}
@@ -207,7 +215,9 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
             {currentStep === 4 && (
               <RadioGroup 
                 value={profileData.goal} 
-                onValueChange={(value) => setProfileData(prev => ({ ...prev, goal: value }))}
+                onValueChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  setProfileData(prev => ({ ...prev, goal: e.target.value }))
+                }
                 className="space-y-4"
               >
                 {goals.map((goal) => (

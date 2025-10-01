@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -6,11 +7,14 @@ import {
   Target
 } from "lucide-react";
 
-interface DashboardProps {
-  onNavigate: (screen: string) => void;
-}
+interface DashboardProps {}
 
-export function Dashboard({ onNavigate }: DashboardProps) {
+export function Dashboard({}: DashboardProps) {
+  const navigate = useNavigate();
+
+  const onNavigate = (screen: string) => {
+    navigate(`/${screen}`);
+  }
 
   const macros = {
     calories: 2150,
@@ -19,9 +23,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     fat: 75
   };
 
-  const urgentIngredients = [
-    "Spinach", "Chicken breast", "Greek yogurt", "Bell peppers", "Avocados"
-  ];
+  const urgentIngredients = ["Ingredient 1", "Ingredient 2"];
 
   return (
     <div className="p-6">
@@ -128,14 +130,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     <div className="flex items-center gap-3 text-sm">
                       <div className="w-2 h-2 bg-primary rounded-full"></div>
                       <span>Created meal plan for this week</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="w-2 h-2 bg-primary rounded-full"></div>
-                      <span>Saved 3 new recipes</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="w-2 h-2 bg-primary rounded-full"></div>
-                      <span>Updated dietary preferences</span>
                     </div>
                   </div>
                 </CardContent>
