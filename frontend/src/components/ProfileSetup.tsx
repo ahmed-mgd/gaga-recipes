@@ -132,10 +132,11 @@ export function ProfileSetup() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender</Label>
-                  <Select 
-                    value={profileData.gender} 
-                    onValueChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
-                    setProfileData(prev => ({ ...prev, gender: e.target.value }))}
+                  <Select
+                    value={profileData.gender}
+                    onValueChange={(value: string) =>
+                      setProfileData(prev => ({ ...prev, gender: value }))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select gender" />
@@ -174,8 +175,8 @@ export function ProfileSetup() {
             {currentStep === 2 && (
               <RadioGroup 
                 value={profileData.activityLevel} 
-                onValueChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  setProfileData(prev => ({ ...prev, activityLevel: e.target.value }))
+                onValueChange={(value: string) =>
+                  setProfileData(prev => ({ ...prev, activityLevel: value }))
                 }
                 className="space-y-4"
               >
@@ -200,8 +201,8 @@ export function ProfileSetup() {
                     <Checkbox
                       id={restriction}
                       checked={profileData.dietaryRestrictions.includes(restriction)}
-                      onCheckedChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                        handleDietaryRestrictionChange(restriction, !!e.target.checked)
+                      onCheckedChange={(checked: boolean) =>
+                        handleDietaryRestrictionChange(restriction, checked)
                       }
                     />
                     <Label htmlFor={restriction} className="cursor-pointer flex-1">
@@ -215,8 +216,8 @@ export function ProfileSetup() {
             {currentStep === 4 && (
               <RadioGroup 
                 value={profileData.goal} 
-                onValueChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  setProfileData(prev => ({ ...prev, goal: e.target.value }))
+                onValueChange={(value: string) => 
+                  setProfileData(prev => ({ ...prev, goal: value }))
                 }
                 className="space-y-4"
               >
