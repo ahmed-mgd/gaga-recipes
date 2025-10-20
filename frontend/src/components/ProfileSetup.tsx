@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "./ui/badge";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { auth, db } from "../firebase/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 interface ProfileSetupProps {}
 
@@ -27,6 +29,7 @@ interface ProfileData {
 export function ProfileSetup() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
+  const [saving, setSaving] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData>({
     age: "",
     gender: "",
@@ -42,11 +45,41 @@ export function ProfileSetup() {
   const totalSteps = 5;
   const progress = (currentStep / totalSteps) * 100;
 
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault?.();
+    const user = auth.currentUser;
+    if (!user) {
+      // Not authenticated -- redirect to auth
+      navigate("/auth");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          profile: profileData,
+          email: user.email || null,
+          displayName: user.displayName || null,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     } else {
-      navigate("/dashboard");
+      handleSubmit();
     }
   };
 
