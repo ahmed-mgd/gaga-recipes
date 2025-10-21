@@ -47,7 +47,7 @@ export function Dashboard({ onNavigate ,userProfile, userMacros }: DashboardProp
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center">
-                      <div className="text-2xl text-primary mb-1"></div>
+                      <div className="text-2xl text-primary mb-1">{macros.calories}</div>
                       <div className="text-sm text-muted-foreground">Calories</div>
                     </div>
                     <div className="text-center">
