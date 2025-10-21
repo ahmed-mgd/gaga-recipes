@@ -28,7 +28,7 @@ export default function App() {
   };
 
   const renderMainContent = () => {
-    switch(appState) {
+    switch (appState) {
       case "dashboard":
         return <Dashboard onNavigate={handleNavigation} />;
       case "meal-plan":
@@ -47,15 +47,15 @@ export default function App() {
       {appState === "auth" && (
         <AuthScreen onAuthComplete={handleAuthComplete} />
       )}
-      
+
       {appState === "profile-setup" && (
         <ProfileSetup onComplete={handleProfileSetupComplete} />
       )}
-      
+
       {isMainApp && (
-        <AppLayout 
+        <AppLayout
           currentScreen={appState}
-          onNavigate={handleNavigation} 
+          onNavigate={handleNavigation}
           onLogout={handleLogout}
         >
           {renderMainContent()}

@@ -14,24 +14,34 @@ interface ProfileSetupProps {
   onComplete: () => void;
 }
 
-interface ProfileData {
-  age: string;
+type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active" | "";
+type Goal = "lose" | "maintain" | "gain" | "";
+
+export interface ProfileData {
+  age: number;
   gender: string;
-  height: string;
-  weight: string;
-  activityLevel: string;
+  height: number;
+  weight: number;
+  activityLevel: ActivityLevel;
   dietaryRestrictions: string[];
-  goal: string;
+  goal: Goal;
   urgentIngredients: string[];
+}
+
+export interface Macros {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
 }
 
 export function ProfileSetup({ onComplete }: ProfileSetupProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [profileData, setProfileData] = useState<ProfileData>({
-    age: "",
+    age: 0,
     gender: "",
-    height: "",
-    weight: "",
+    height: 0,
+    weight: 0,
     activityLevel: "",
     dietaryRestrictions: [],
     goal: "",
@@ -54,6 +64,14 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  const handleNumberInputChange = (field: 'age' | 'height' | 'weight', value: string) => {
+    const numValue = value === '' ? 0 : Number(value);
+    setProfileData(prev => ({
+      ...prev,
+      [field]: numValue
+    }));
   };
 
   const handleDietaryRestrictionChange = (restriction: string, checked: boolean) => {
@@ -83,7 +101,7 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
     }));
   };
 
-  const activityLevels = [
+   const activityLevels: { value: ActivityLevel; label: string; description: string }[] = [
     { value: "sedentary", label: "Sedentary", description: "Little to no exercise" },
     { value: "light", label: "Light", description: "Exercise 1-3 times/week" },
     { value: "moderate", label: "Moderate", description: "Exercise 4-5 times/week" },
@@ -97,7 +115,7 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
     { value: "gain", label: "Gain Muscle", description: "Build muscle and strength" }
   ];
 
-  return (
+ return (
     <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         <div className="mb-8">
@@ -126,13 +144,13 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
                     id="age"
                     type="number"
                     placeholder="Enter your age"
-                    value={profileData.age}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, age: e.target.value }))}
+                    value={profileData.age || ""}
+                    onChange={(e) => handleNumberInputChange('age', e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender</Label>
-                  <Select value={profileData.gender} onValueChange={(value) => setProfileData(prev => ({ ...prev, gender: value }))}>
+                  <Select value={profileData.gender} onValueChange={(value: string) => setProfileData(prev => ({ ...prev, gender: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
@@ -150,8 +168,8 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
                     id="height"
                     type="number"
                     placeholder="Enter your height"
-                    value={profileData.height}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, height: e.target.value }))}
+                    value={profileData.height || ""}
+                    onChange={(e) => handleNumberInputChange('height', e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -160,8 +178,8 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
                     id="weight"
                     type="number"
                     placeholder="Enter your weight"
-                    value={profileData.weight}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, weight: e.target.value }))}
+                    value={profileData.weight || ""}
+                    onChange={(e) => handleNumberInputChange('weight', e.target.value)}
                   />
                 </div>
               </div>
@@ -170,7 +188,7 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
             {currentStep === 2 && (
               <RadioGroup 
                 value={profileData.activityLevel} 
-                onValueChange={(value) => setProfileData(prev => ({ ...prev, activityLevel: value }))}
+                onValueChange={(value: ActivityLevel) => setProfileData(prev => ({ ...prev, activityLevel: value }))}
                 className="space-y-4"
               >
                 {activityLevels.map((level) => (
@@ -194,7 +212,7 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
                     <Checkbox
                       id={restriction}
                       checked={profileData.dietaryRestrictions.includes(restriction)}
-                      onCheckedChange={(checked) => handleDietaryRestrictionChange(restriction, !!checked)}
+                      onCheckedChange={(checked: boolean | "indeterminate") => handleDietaryRestrictionChange(restriction, checked === true)}
                     />
                     <Label htmlFor={restriction} className="cursor-pointer flex-1">
                       {restriction}
@@ -207,7 +225,7 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
             {currentStep === 4 && (
               <RadioGroup 
                 value={profileData.goal} 
-                onValueChange={(value) => setProfileData(prev => ({ ...prev, goal: value }))}
+                onValueChange={(value: Goal) => setProfileData(prev => ({ ...prev, goal: value }))}
                 className="space-y-4"
               >
                 {goals.map((goal) => (
