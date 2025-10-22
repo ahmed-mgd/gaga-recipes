@@ -10,13 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "./ui/badge";
 import { X } from "lucide-react";
 
-interface ProfileSetupProps {
-  onComplete: () => void;
-}
-
-type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active" | "";
-type Goal = "lose" | "maintain" | "gain" | "";
-
 export interface ProfileData {
   age: number;
   gender: string;
@@ -33,6 +26,13 @@ export interface Macros {
   protein: number;
   carbs: number;
   fat: number;
+}
+
+type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active" | "";
+type Goal = "lose" | "maintain" | "gain" | "";
+
+interface ProfileSetupProps {
+  onComplete: (profile: ProfileData) => void;
 }
 
 export function ProfileSetup({ onComplete }: ProfileSetupProps) {
@@ -56,7 +56,7 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     } else {
-      onComplete();
+      onComplete(profileData);
     }
   };
 
@@ -68,16 +68,13 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
 
   const handleNumberInputChange = (field: 'age' | 'height' | 'weight', value: string) => {
     const numValue = value === '' ? 0 : Number(value);
-    setProfileData(prev => ({
-      ...prev,
-      [field]: numValue
-    }));
+    setProfileData(prev => ({ ...prev, [field]: numValue }));
   };
 
   const handleDietaryRestrictionChange = (restriction: string, checked: boolean) => {
     setProfileData(prev => ({
       ...prev,
-      dietaryRestrictions: checked 
+      dietaryRestrictions: checked
         ? [...prev.dietaryRestrictions, restriction]
         : prev.dietaryRestrictions.filter(r => r !== restriction)
     }));
@@ -101,12 +98,12 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
     }));
   };
 
-   const activityLevels: { value: ActivityLevel; label: string; description: string }[] = [
+  const activityLevels = [
     { value: "sedentary", label: "Sedentary", description: "Little to no exercise" },
-    { value: "light", label: "Light", description: "Exercise 1-3 times/week" },
-    { value: "moderate", label: "Moderate", description: "Exercise 4-5 times/week" },
+    { value: "light", label: "Light", description: "Exercise 1–3 times/week" },
+    { value: "moderate", label: "Moderate", description: "Exercise 4–5 times/week" },
     { value: "active", label: "Active", description: "Daily exercise" },
-    { value: "very_active", label: "Very Active", description: "Intense exercise 6-7 times/week" }
+    { value: "very_active", label: "Very Active", description: "Intense exercise 6–7 times/week" }
   ];
 
   const goals = [
@@ -115,7 +112,7 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
     { value: "gain", label: "Gain Muscle", description: "Build muscle and strength" }
   ];
 
- return (
+  return (
     <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         <div className="mb-8">
@@ -135,7 +132,9 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
               {currentStep === 5 && "Urgent Ingredients"}
             </CardTitle>
           </CardHeader>
+
           <CardContent className="space-y-6">
+            {/* Step 1 */}
             {currentStep === 1 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -145,12 +144,17 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
                     type="number"
                     placeholder="Enter your age"
                     value={profileData.age || ""}
-                    onChange={(e) => handleNumberInputChange('age', e.target.value)}
+                    onChange={(e) => handleNumberInputChange("age", e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender</Label>
-                  <Select value={profileData.gender} onValueChange={(value: string) => setProfileData(prev => ({ ...prev, gender: value }))}>
+                  <Select
+                    value={profileData.gender}
+                    onValueChange={(value: string) =>
+                      setProfileData(prev => ({ ...prev, gender: value }))
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
@@ -167,7 +171,7 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
                     type="number"
                     placeholder="Enter your height"
                     value={profileData.height || ""}
-                    onChange={(e) => handleNumberInputChange('height', e.target.value)}
+                    onChange={(e) => handleNumberInputChange("height", e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -177,25 +181,26 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
                     type="number"
                     placeholder="Enter your weight"
                     value={profileData.weight || ""}
-                    onChange={(e) => handleNumberInputChange('weight', e.target.value)}
+                    onChange={(e) => handleNumberInputChange("weight", e.target.value)}
                   />
                 </div>
               </div>
             )}
 
+            {/* Step 2 */}
             {currentStep === 2 && (
-              <RadioGroup 
-                value={profileData.activityLevel} 
-                onValueChange={(value: ActivityLevel) => setProfileData(prev => ({ ...prev, activityLevel: value }))}
+              <RadioGroup
+                value={profileData.activityLevel}
+                onValueChange={(value: ActivityLevel) =>
+                  setProfileData(prev => ({ ...prev, activityLevel: value }))
+                }
                 className="space-y-4"
               >
-                {activityLevels.map((level) => (
+                {activityLevels.map(level => (
                   <div key={level.value} className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent">
                     <RadioGroupItem value={level.value} id={level.value} />
                     <div className="flex-1">
-                      <Label htmlFor={level.value} className="cursor-pointer">
-                        {level.label}
-                      </Label>
+                      <Label htmlFor={level.value} className="cursor-pointer">{level.label}</Label>
                       <p className="text-sm text-muted-foreground">{level.description}</p>
                     </div>
                   </div>
@@ -203,14 +208,17 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
               </RadioGroup>
             )}
 
+            {/* Step 3 */}
             {currentStep === 3 && (
               <div className="space-y-4">
-                {["Vegetarian", "Vegan", "Gluten-free", "Dairy-free", "None"].map((restriction) => (
+                {["Vegetarian", "Vegan", "Gluten-free", "Dairy-free", "None"].map(restriction => (
                   <div key={restriction} className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent">
                     <Checkbox
                       id={restriction}
                       checked={profileData.dietaryRestrictions.includes(restriction)}
-                      onCheckedChange={(checked: boolean | "indeterminate") => handleDietaryRestrictionChange(restriction, checked === true)}
+                      onCheckedChange={(checked: boolean | "indeterminate") =>
+                        handleDietaryRestrictionChange(restriction, checked === true)
+                      }
                     />
                     <Label htmlFor={restriction} className="cursor-pointer flex-1">
                       {restriction}
@@ -220,19 +228,20 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
               </div>
             )}
 
+            {/* Step 4 */}
             {currentStep === 4 && (
-              <RadioGroup 
-                value={profileData.goal} 
-                onValueChange={(value: Goal) => setProfileData(prev => ({ ...prev, goal: value }))}
+              <RadioGroup
+                value={profileData.goal}
+                onValueChange={(value: Goal) =>
+                  setProfileData(prev => ({ ...prev, goal: value }))
+                }
                 className="space-y-4"
               >
-                {goals.map((goal) => (
+                {goals.map(goal => (
                   <div key={goal.value} className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent">
                     <RadioGroupItem value={goal.value} id={goal.value} />
                     <div className="flex-1">
-                      <Label htmlFor={goal.value} className="cursor-pointer">
-                        {goal.label}
-                      </Label>
+                      <Label htmlFor={goal.value} className="cursor-pointer">{goal.label}</Label>
                       <p className="text-sm text-muted-foreground">{goal.description}</p>
                     </div>
                   </div>
@@ -240,6 +249,7 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
               </RadioGroup>
             )}
 
+            {/* Step 5 */}
             {currentStep === 5 && (
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -254,13 +264,10 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
                 </div>
                 {profileData.urgentIngredients.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {profileData.urgentIngredients.map((ingredient) => (
+                    {profileData.urgentIngredients.map(ingredient => (
                       <Badge key={ingredient} variant="secondary" className="flex items-center gap-1">
                         {ingredient}
-                        <X 
-                          className="h-3 w-3 cursor-pointer" 
-                          onClick={() => removeIngredient(ingredient)}
-                        />
+                        <X className="h-3 w-3 cursor-pointer" onClick={() => removeIngredient(ingredient)} />
                       </Badge>
                     ))}
                   </div>
@@ -269,18 +276,10 @@ export function ProfileSetup({ onComplete }: ProfileSetupProps) {
             )}
 
             <div className="flex justify-between pt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleBack}
-                disabled={currentStep === 1}
-              >
+              <Button type="button" variant="outline" onClick={handleBack} disabled={currentStep === 1}>
                 Back
               </Button>
-              <Button
-                type="button"
-                onClick={handleNext}
-              >
+              <Button type="button" onClick={handleNext}>
                 {currentStep === totalSteps ? "Complete Setup" : "Next"}
               </Button>
             </div>

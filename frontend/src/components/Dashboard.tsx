@@ -15,12 +15,13 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onNavigate ,userProfile, userMacros }: DashboardProps) {
-  const macros: Macros = userMacros || (userProfile ? calculateMacros(userProfile) : {
+  /*const macros: Macros = userMacros || (userProfile ? calculateMacros(userProfile) : {
     calories: 2150,
     protein: 130,
     carbs: 220,
     fat: 75
-  });
+  });*/
+  const macros: Macros | undefined = userProfile ? calculateMacros(userProfile) : undefined;
   
 
   const urgentIngredients = [
@@ -47,19 +48,19 @@ export function Dashboard({ onNavigate ,userProfile, userMacros }: DashboardProp
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center">
-                      <div className="text-2xl text-primary mb-1">{macros.calories}</div>
+                      <div className="text-2xl text-primary mb-1">{macros?.calories}g</div>
                       <div className="text-sm text-muted-foreground">Calories</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl text-primary mb-1">{macros.protein}g</div>
+                      <div className="text-2xl text-primary mb-1">{macros?.protein}g</div>
                       <div className="text-sm text-muted-foreground">Protein</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl text-primary mb-1">{macros.carbs}g</div>
+                      <div className="text-2xl text-primary mb-1">{macros?.carbs}g</div>
                       <div className="text-sm text-muted-foreground">Carbs</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl text-primary mb-1">{macros.fat}g</div>
+                      <div className="text-2xl text-primary mb-1">{macros?.fat}g</div>
                       <div className="text-sm text-muted-foreground">Fat</div>
                     </div>
                   </div>

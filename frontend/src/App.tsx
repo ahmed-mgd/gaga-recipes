@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AuthScreen } from "./components/AuthScreen";
-import { ProfileSetup } from "./components/ProfileSetup";
+import { ProfileSetup, ProfileData } from "./components/ProfileSetup";
 import { AppLayout } from "./components/AppLayout";
 import { Dashboard } from "./components/Dashboard";
 import { MealPlan } from "./components/MealPlan";
@@ -10,6 +10,7 @@ type AppState = "auth" | "profile-setup" | "dashboard" | "meal-plan" | "recipes"
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>("auth");
+  const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
 
   const handleAuthComplete = () => {
     setAppState("profile-setup");
@@ -30,7 +31,7 @@ export default function App() {
   const renderMainContent = () => {
     switch (appState) {
       case "dashboard":
-        return <Dashboard onNavigate={handleNavigation} />;
+        return <Dashboard onNavigate={handleNavigation} userProfile={userProfile || undefined}/>;
       case "meal-plan":
         return <MealPlan />;
       case "recipes":
@@ -49,7 +50,11 @@ export default function App() {
       )}
 
       {appState === "profile-setup" && (
-        <ProfileSetup onComplete={handleProfileSetupComplete} />
+        <ProfileSetup onComplete={(profile) => {
+          setUserProfile(profile);
+          handleProfileSetupComplete();
+}} />
+
       )}
 
       {isMainApp && (
