@@ -80,6 +80,110 @@ def search_recipes():
     except Exception as e:
         return jsonify({"error": f"An error occurred during search: {e}"}), 500
 
+@app.route('/api/recommendations/<user_id>')
+def get_recommendations(user_id):
+    """
+    Fetches user's macro goals from Firestore and returns 10 random recipes
+    from Elasticsearch that fit those goals.
+    """
+    if not db:
+        return jsonify({"error": "Firebase not initialized"}), 500
+
+    # 1. Fetch user macros from Firebase
+    try:
+        user_ref = db.collection('users').document(user_id)
+        user_doc = user_ref.get()
+
+        if not user_doc.exists:
+            return jsonify({"error": "User not found"}), 404
+        
+        user_data = user_doc.to_dict()
+        macros = user_data.get('macros')
+
+        if not macros:
+            return jsonify({"error": "User has no macro data"}), 404
+
+        # Get daily goals from Firestore
+        daily_calories = float(macros.get('calories', 2000))
+        daily_protein = float(macros.get('protein', 50))
+        daily_carbs = float(macros.get('carbohydrates', 300))
+        daily_fat = float(macros.get('fat', 70))
+
+    except Exception as e:
+        return jsonify({"error": f"Firebase error: {str(e)}"}), 500
+    
+    # 2. Calculate "Per-Meal" Targets (assuming 3 meals per day)
+    #  Can make this more complex later (e.g., 30% for lunch)
+    target_calories = daily_calories / 3
+    target_protein = daily_protein / 3
+    target_carbs = daily_carbs / 3
+    target_fat = daily_fat / 3
+
+    # Define a "grace period" for scoring.
+    # e.g., for calories, +- 50 calories is still a "perfect" score.
+    # After 50 calories (the offset), the score starts to drop.
+    # The 'scale' defines how quickly it drops.
+    search_body = {
+        "size": 10,
+        "query": {
+            "function_score": {
+                "query": {"match_all": {}}, # Start with all recipes
+                "functions": [
+                    {
+                        "gauss": {
+                            "calories": {
+                                "origin": target_calories, # The "perfect" value
+                                "offset": 50,             # Grace period
+                                "scale": 100              # How quickly score drops
+                            }
+                        }
+                    },
+                    {
+                        "gauss": {
+                            "protein_grams": {
+                                "origin": target_protein,
+                                "offset": 5,
+                                "scale": 10
+                            }
+                        }
+                    },
+                    {
+                        "gauss": {
+                            "carbs_grams": {
+                                "origin": target_carbs,
+                                "offset": 10,
+                                "scale": 20
+                            }
+                        }
+                    },
+                    {
+                        "gauss": {
+                            "fat_grams": {
+                                "origin": target_fat,
+                                "offset": 5,
+                                "scale": 10
+                            }
+                        }
+                    }
+                ],
+                # We want the scores to be combined
+                "score_mode": "multiply", 
+                "boost_mode": "multiply"
+            }
+        }
+    }
+
+    # 3. Execute the search
+    try:
+        response = client.search(
+            index=INDEX_NAME,
+            body=search_body
+        )
+        results = [hit['_source'] for hit in response['hits']['hits']]
+        return jsonify(results)
+        
+    except Exception as e:
+        return jsonify({"error": f"An error occurred during search: {e}"}), 500
 
 if __name__ == '__main__':
     app.run()

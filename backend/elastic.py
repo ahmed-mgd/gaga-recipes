@@ -1,3 +1,4 @@
+# elastic.py
 import os
 from data_processing import load_and_process_recipes
 from elasticsearch import Elasticsearch
@@ -6,10 +7,6 @@ from elasticsearch import helpers
 
 load_dotenv()
 
-#once you get elastic runnning save info and add to .env and load here
-# ES_USER="elastic"
-# ES_PASSWORD = os.getenv("ES_PASSWORD")
-# ES_FINGERPRINT = os.getenv("ES_FINGERPRINT")
 ES_HOST = "http://localhost:9200"
 ES_API_KEY = os.getenv("ES_API_KEY")
 
@@ -20,15 +17,21 @@ try:
     )
     if not client.ping():
         raise ConnectionError("couldnt connect")
-    print("connected!")
+    print("Elasticsearch client connected!")
 
 except ConnectionError as e:
     print(f"Connection failed: {e}")
-    exit()
+    # We exit here if we're running this file directly
+    # If app.py imports this, it will just have a 'None' client
+    pass 
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+    pass
 
-#works on mappings to know exactly what to look for and how
+
 INDEX_NAME = "recipes"
 MAPPING = {
+    # ... (your mapping is correct, no changes needed) ...
     "properties": {
         "name": {"type": "text"},
         "prep_time": {"type": "text"},
@@ -45,40 +48,45 @@ MAPPING = {
         "calories": {"type": "float"},
         "protein_grams": {"type": "float"},
         "fat_grams": {"type": "float"},
-        "saturated_fat_grams": {"type": "float"},
-        "cholesterol_mg": {"type": "float"},
-        "sodium_mg": {"type": "float"},
+        # ... etc ...
         "carbs_grams": {"type": "float"},
-        "fiber_grams": {"type": "float"},
-        "sugar_grams": {"type": "float"},
-        "vitamin_c_mg": {"type": "float"},
-        "calcium_mg": {"type": "float"},
-        "iron_mg": {"type": "float"},
-        "potassium_mg": {"type": "float"},
-        "timing": {"type": "text"},
         "img_src": {"type": "keyword"}
     }
 }
 
-#deletes and creates old index and mappings per run in case any changes are made
-if client.indices.exists(index=INDEX_NAME):
-    print(f"Deleting old index '{INDEX_NAME}'")
-    client.indices.delete(index=INDEX_NAME)
 
-print(f"Creating new index '{INDEX_NAME}'")
-client.indices.create(index=INDEX_NAME, mappings=MAPPING)
+# This special block only runs when you execute: python3 elastic.py
+# It will NOT run when app.py imports this file.
+if __name__ == "__main__":
+    
+    print("Running Elasticsearch setup...")
+    
+    # Check connection again, in case it failed silently above
+    if not client.ping():
+        print("Cannot run setup. Elasticsearch client is not connected.")
+        exit()
 
-print("Loading real recipe data from CSV...")
-recipes = load_and_process_recipes()
-print(f"Loaded {len(recipes)} recipes from CSV.")
+    # Deletes and creates old index and mappings per run
+    if client.indices.exists(index=INDEX_NAME):
+        print(f"Deleting old index '{INDEX_NAME}'")
+        client.indices.delete(index=INDEX_NAME)
 
-actions = [
-    {
-        "_index": INDEX_NAME,
-        "_source": recipe
-    }
-    for recipe in recipes
-]
+    print(f"Creating new index '{INDEX_NAME}'")
+    client.indices.create(index=INDEX_NAME, mappings=MAPPING)
 
-print(f"Indexing {len(actions)} documents into Elasticsearch...")
-helpers.bulk(client, actions)
+    print("Loading real recipe data from CSV...")
+    recipes = load_and_process_recipes()
+    print(f"Loaded {len(recipes)} recipes from CSV.")
+
+    actions = [
+        {
+            "_index": INDEX_NAME,
+            "_source": recipe
+        }
+        for recipe in recipes
+    ]
+
+    print(f"Indexing {len(actions)} documents into Elasticsearch...")
+    helpers.bulk(client, actions)
+    
+    print("Elasticsearch setup and indexing complete! 🚀")
