@@ -53,18 +53,55 @@ def get_user_demographics(user_id):
         return {"error": str(e)}, 500
     
 @app.route('/api/search')
+@app.route('/api/search')
 def search_recipes():
     query = request.args.get('q', "")
-    if not query:
-        return jsonify([])
+    min_protein = request.args.get('min_protein', type=float)
+    min_calories = request.args.get('min_calories', type=float)
+    max_calories = request.args.get('max_calories', type=float)
 
     try:
-        search_body = {
-            "query": {
+        must_clauses = []
+        if query:
+            must_clauses.append({
                 "multi_match": {
                     "query": query,
                     "fields": ["name", "ingredients"],
                     "fuzziness": "AUTO"
+                }
+            })
+        else:
+            must_clauses.append({"match_all": {}})
+
+        filters = []
+        
+        protein = {}
+        if min_protein is not None:
+            protein['gte'] = min_protein
+        if protein:
+            filters.append({
+                "range": {
+                    "protein_grams": protein
+                }
+            })
+
+        calories_range = {}
+        if min_calories is not None:
+            calories_range['gte'] = min_calories
+        if max_calories is not None:
+            calories_range['lte'] = max_calories
+        if calories_range:
+            filters.append({
+                "range": {
+                    "calories": calories_range
+                }
+            })
+
+        search_body = {
+            "query": {
+                "bool": {
+                    "must": must_clauses,
+                    "filter": filters
                 }
             }
         }
@@ -76,7 +113,6 @@ def search_recipes():
         
         results = [hit['_source'] for hit in response['hits']['hits']]
         return jsonify(results)
-        
     except Exception as e:
         return jsonify({"error": f"An error occurred during search: {e}"}), 500
 
