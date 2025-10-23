@@ -38,16 +38,21 @@ export function RecipeSearch() {
   const [savedRecipes, setSavedRecipes] = useState<Record<string, boolean>>({});
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
+  // filters (no slider — numeric range inputs)
+  const [minProtein, setMinProtein] = useState<number>(0);
+  const [minCalories, setMinCalories] = useState<number>(0);
+  const [maxCalories, setMaxCalories] = useState<number>(1200);
+
   const PER_PAGE = 18;
 
   useEffect(() => {
-    // do not read/write localStorage — keep favorites in-memory only
+    // initial sample fetch — favorites remain in-memory only
     fetchResults("a");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleSaved = (id: string) => {
-    setSavedRecipes(prev => {
+    setSavedRecipes((prev) => {
       const next = { ...prev };
       if (next[id]) delete next[id];
       else next[id] = true;
@@ -58,14 +63,14 @@ export function RecipeSearch() {
   const safeList = (val?: string[] | string): string[] => {
     if (!val) return [];
     if (Array.isArray(val)) return val;
-    return val.split(/\r?\n|;|,/).map(s => s.trim()).filter(Boolean);
+    return String(val).split(/\r?\n|;|,/).map((s) => s.trim()).filter(Boolean);
   };
 
   const difficultyFromRating = (r?: number) => {
     if (r == null) return "Unknown";
-    if (r >= 4.5) return "Excellent";
-    if (r >= 4.0) return "Great";
-    if (r >= 3.0) return "Good";
+    if (r >= 4.5) return "Easy";
+    if (r >= 4.0) return "Medium";
+    if (r >= 3.0) return "Hard";
     return "Average";
   };
 
@@ -78,7 +83,13 @@ export function RecipeSearch() {
 
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/search?q=${encodeURIComponent(q)}`);
+      const params = new URLSearchParams();
+      params.set("q", q);
+      if (minProtein > 0) params.set("min_protein", String(minProtein));
+      if (minCalories > 0) params.set("min_calories", String(minCalories));
+      if (maxCalories > 0) params.set("max_calories", String(maxCalories));
+
+      const res = await fetch(`http://localhost:5000/api/search?${params.toString()}`);
       const data = await res.json();
       if (Array.isArray(data)) setResults(data);
       else if (data?.recipes && Array.isArray(data.recipes)) setResults(data.recipes);
@@ -104,13 +115,23 @@ export function RecipeSearch() {
     }
   };
 
+  // keep min <= max when user edits inputs
+  const onMinCaloriesChange = (v: number) => {
+    const next = Math.min(v, maxCalories);
+    setMinCalories(next);
+  };
+  const onMaxCaloriesChange = (v: number) => {
+    const next = Math.max(v, minCalories);
+    setMaxCalories(next);
+  };
+
   const totalPages = Math.max(1, Math.ceil(results.length / PER_PAGE));
   const displayed = results.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   return (
     <div className="p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Search */}
+      <div className="max-w-7xl mx-auto">
+        {/* Search + filters */}
         <div className="space-y-4 mb-6">
           <div className="relative max-w-2xl">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -121,6 +142,52 @@ export function RecipeSearch() {
               onKeyDown={handleKeyDown}
               className="pl-10"
             />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-muted-foreground">Min protein (g)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  aria-label="Minimum protein"
+                  type="range"
+                  min={0}
+                  max={200}
+                  step={1}
+                  value={minProtein}
+                  onChange={(e) => setMinProtein(Math.max(0, Number(e.target.value)))}
+                  className="w-40"
+                />
+                <div className="w-16 text-right text-sm text-muted-foreground">{minProtein} g</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="text-sm text-muted-foreground">Calories range</div>
+              <Input
+                type="number"
+                value={minCalories}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onMinCaloriesChange(Number(e.target.value || 0))}
+                className="w-24"
+                min={0}
+                aria-label="Minimum calories"
+              />
+              <span className="text-sm text-muted-foreground">—</span>
+              <Input
+                type="number"
+                value={maxCalories}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onMaxCaloriesChange(Number(e.target.value || 0))}
+                className="w-24"
+                min={0}
+                aria-label="Maximum calories"
+              />
+            </div>
+
+            <div className="ml-auto">
+              <Button onClick={handleSearch} disabled={loading}>
+                {loading ? "Searching..." : "Search"}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -220,9 +287,7 @@ export function RecipeSearch() {
           <div className="text-center py-12">
             <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg mb-2">No recipes found</h3>
-            <p className="text-muted-foreground">
-              Try adjusting your search terms
-            </p>
+            <p className="text-muted-foreground">Try adjusting your search terms</p>
           </div>
         )}
 
@@ -243,13 +308,13 @@ export function RecipeSearch() {
               </Button>
 
               <div className="text-sm">
-                Page {page} / {totalPages}
+                Page {page} / {Math.max(1, Math.ceil(results.length / PER_PAGE))}
               </div>
 
               <Button
                 variant="ghost"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(Math.max(1, Math.ceil(results.length / PER_PAGE)), p + 1))}
+                disabled={page >= Math.max(1, Math.ceil(results.length / PER_PAGE))}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
