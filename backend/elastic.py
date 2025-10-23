@@ -16,6 +16,8 @@ ES_API_KEY = os.getenv("ES_API_KEY")
 try:
     client = Elasticsearch(
         ES_HOST,
+        #basic_auth=("elastic", ES_PASSWORD),
+        #ssl_assert_fingerprint=ES_FINGERPRINT 
         api_key=ES_API_KEY
     )
     if not client.ping():
