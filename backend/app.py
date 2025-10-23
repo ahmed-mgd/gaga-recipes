@@ -53,7 +53,6 @@ def get_user_demographics(user_id):
         return {"error": str(e)}, 500
     
 @app.route('/api/search')
-@app.route('/api/search')
 def search_recipes():
     query = request.args.get('q', "")
     min_protein = request.args.get('min_protein', type=float)
