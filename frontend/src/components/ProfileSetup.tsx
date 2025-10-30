@@ -7,9 +7,10 @@ import { Progress } from "./ui/progress";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Checkbox } from "./ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Badge } from "./ui/badge";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { auth, db } from "../firebase/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 interface ProfileSetupProps {}
 
@@ -21,12 +22,12 @@ interface ProfileData {
   activityLevel: string;
   dietaryRestrictions: string[];
   goal: string;
-  urgentIngredients: string[];
 }
 
 export function ProfileSetup() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
+  const [saving, setSaving] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData>({
     age: "",
     gender: "",
@@ -35,18 +36,46 @@ export function ProfileSetup() {
     activityLevel: "",
     dietaryRestrictions: [],
     goal: "",
-    urgentIngredients: []
   });
-  const [ingredientInput, setIngredientInput] = useState("");
 
-  const totalSteps = 5;
+  const totalSteps = 4;
   const progress = (currentStep / totalSteps) * 100;
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault?.();
+    const user = auth.currentUser;
+    if (!user) {
+      // Not authenticated -- redirect to auth
+      navigate("/auth");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          profile: profileData,
+          email: user.email || null,
+          displayName: user.displayName || null,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleNext = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     } else {
-      navigate("/dashboard");
+      handleSubmit();
     }
   };
 
@@ -62,24 +91,6 @@ export function ProfileSetup() {
       dietaryRestrictions: checked 
         ? [...prev.dietaryRestrictions, restriction]
         : prev.dietaryRestrictions.filter(r => r !== restriction)
-    }));
-  };
-
-  const addIngredient = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && ingredientInput.trim()) {
-      e.preventDefault();
-      setProfileData(prev => ({
-        ...prev,
-        urgentIngredients: [...prev.urgentIngredients, ingredientInput.trim()]
-      }));
-      setIngredientInput("");
-    }
-  };
-
-  const removeIngredient = (ingredient: string) => {
-    setProfileData(prev => ({
-      ...prev,
-      urgentIngredients: prev.urgentIngredients.filter(i => i !== ingredient)
     }));
   };
 
@@ -233,34 +244,6 @@ export function ProfileSetup() {
                   </div>
                 ))}
               </RadioGroup>
-            )}
-
-            {currentStep === 5 && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ingredients">Add ingredients you need to use up</Label>
-                  <Input
-                    id="ingredients"
-                    placeholder="Type an ingredient and press Enter"
-                    value={ingredientInput}
-                    onChange={(e) => setIngredientInput(e.target.value)}
-                    onKeyDown={addIngredient}
-                  />
-                </div>
-                {profileData.urgentIngredients.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {profileData.urgentIngredients.map((ingredient) => (
-                      <Badge key={ingredient} variant="secondary" className="flex items-center gap-1">
-                        {ingredient}
-                        <X 
-                          className="h-3 w-3 cursor-pointer" 
-                          onClick={() => removeIngredient(ingredient)}
-                        />
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
             )}
 
             <div className="flex justify-between pt-6">
