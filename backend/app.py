@@ -8,6 +8,10 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 from firebase_admin import auth
 from elastic import client, INDEX_NAME
+from macro_calculator import calculate_macros
+
+
+CORS(app, origins=["http://localhost:3000"])  # allow frontend
 
 # Configuration
 DEBUG = True
@@ -142,7 +146,7 @@ def get_recommendations(user_id):
         # Get daily goals from Firestore
         daily_calories = float(macros.get('calories', 2000))
         daily_protein = float(macros.get('protein', 50))
-        daily_carbs = float(macros.get('carbohydrates', 300))
+        daily_carbs = float(macros.get('carbs', 300))
         daily_fat = float(macros.get('fat', 70))
 
     except Exception as e:
@@ -359,7 +363,23 @@ def delete_favorite_by_url():
         return jsonify({"status": "success", "message": "Favorite deleted"}), 200
     except Exception as e:
         return jsonify({"error": f"Failed to delete favorite by url: {e}"}), 500
+    
+@app.route('/calculate_macros', methods=['POST'])
+def calculate_macros():
+    data = request.get_json()
+    uid = data.get("uid")
+
+    # Compute macros
+    macros = calculate_macros(data)
+
+    # ✅ Save to Firebase
+    if uid:
+        db.collection("users").document(uid).set({
+            "macros": macros
+        }, merge=True)
+
+    return jsonify(macros)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__'
     app.run()

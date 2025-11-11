@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { recipes as initialRecipes, recipes } from "/Users/ekumjyotkaur/capstone/gaga-recipes2/gaga-recipes/frontend/src/components/data/recipes.ts";
+import { recipes as initialRecipes, recipes } from "/Users/merce/OneDrive/Desktop/OSU/F25/CSE 5914 Cpstn/Recipe/gaga-recipes/frontend/src/components/data/recipes.ts";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Badge } from "./ui/badge";
