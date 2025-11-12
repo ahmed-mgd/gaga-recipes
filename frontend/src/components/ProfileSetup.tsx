@@ -52,10 +52,6 @@ export function ProfileSetup() {
     setProfileData(prev => ({ ...prev, [field]: numValue }));
   };
 
-  const handleNumberInputChange = (field: 'age' | 'height' | 'weight', value: string) => {
-    const numValue = value === '' ? 0 : Number(value);
-    setProfileData(prev => ({ ...prev, [field]: numValue }));
-  };
 
   const handleDietaryRestrictionChange = (restriction: string, checked: boolean) => {
     setProfileData(prev => ({
