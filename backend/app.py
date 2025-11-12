@@ -8,16 +8,15 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 from firebase_admin import auth
 from elastic import client, INDEX_NAME
-from macro_calculator import calculate_macros
+from macro_calculator import macros_calc 
 
-
-CORS(app, origins=["http://localhost:3000"])  # allow frontend
 
 # Configuration
 DEBUG = True
 
 # Instantiate the app
 app = Flask(__name__)
+CORS(app, origins=["http://localhost:3000"])  # allow frontend
 app.config.from_object(__name__)
 
 # Initialize Firebase Admin SDK
@@ -370,7 +369,7 @@ def calculate_macros():
     uid = data.get("uid")
 
     # Compute macros
-    macros = calculate_macros(data)
+    macros = macros_calc(data)
 
     # ✅ Save to Firebase
     if uid:

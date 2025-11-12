@@ -1,9 +1,9 @@
-def calculate_macros(user):
+def macros_calc(user):
     age = user.get("age")
     gender = user.get("gender")
     height = user.get("height")
     weight = user.get("weight")
-    activity_level = user.get("activityLevel")
+    activity_level = user.get("activity_level")
     goal = user.get("goal")
 
     # BMR using Mifflin-St Jeor formula
