@@ -1,71 +1,41 @@
-import { useState } from "react";
-import { AuthScreen } from "./components/AuthScreen";
-import { ProfileSetup, ProfileData } from "./components/ProfileSetup";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ProfileSetup } from "./components/ProfileSetup";
 import { AppLayout } from "./components/AppLayout";
 import { Dashboard } from "./components/Dashboard";
 import { MealPlan } from "./components/MealPlan";
 import { RecipeSearch } from "./components/RecipeSearch";
-
-type AppState = "auth" | "profile-setup" | "dashboard" | "meal-plan" | "recipes";
+import { AuthScreen } from "./components/AuthScreen";
+import { Settings } from "./components/Settings";
+import NotFound from "./components/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
-  const [appState, setAppState] = useState<AppState>("auth");
-  const [userProfile, setUserProfile] = useState<ProfileData | null>(null);
-
-  const handleAuthComplete = () => {
-    setAppState("profile-setup");
-  };
-
-  const handleProfileSetupComplete = () => {
-    setAppState("dashboard");
-  };
-
-  const handleNavigation = (screen: string) => {
-    setAppState(screen as AppState);
-  };
-
-  const handleLogout = () => {
-    setAppState("auth");
-  };
-
-  const renderMainContent = () => {
-    switch (appState) {
-      case "dashboard":
-        return <Dashboard onNavigate={handleNavigation} userProfile={userProfile || undefined}/>;
-      case "meal-plan":
-        return <MealPlan />;
-      case "recipes":
-        return <RecipeSearch />;
-      default:
-        return <Dashboard onNavigate={handleNavigation} />;
-    }
-  };
-
-  const isMainApp = ["dashboard", "meal-plan", "recipes", "settings"].includes(appState);
-
   return (
-    <div className="min-h-screen bg-background">
-      {appState === "auth" && (
-        <AuthScreen onAuthComplete={handleAuthComplete} />
-      )}
+    <BrowserRouter>
+      <Routes>
+        {/* Auth routes */}
+        <Route path="/auth" element={<AuthScreen />} />
+        <Route path="/profile-setup" element={<ProfileSetup />} />
 
-      {appState === "profile-setup" && (
-        <ProfileSetup onComplete={(profile) => {
-          setUserProfile(profile);
-          handleProfileSetupComplete();
-}} />
-
-      )}
-
-      {isMainApp && (
-        <AppLayout
-          currentScreen={appState}
-          onNavigate={handleNavigation}
-          onLogout={handleLogout}
+        {/* Main app routes with layout */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
         >
-          {renderMainContent()}
-        </AppLayout>
-      )}
-    </div>
+          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="meal-plan" element={<MealPlan />} />
+          <Route path="recipes" element={<RecipeSearch />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
+
+        {/* Redirect unknown routes to error page */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

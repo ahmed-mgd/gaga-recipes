@@ -1,22 +1,34 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs"
 import { ImageWithFallback } from "./figma/ImageWithFallback"
+import { useNavigate } from "react-router-dom"
 
 import {
   doSignInWithEmailAndPassword,
   doCreateUserWithEmailAndPassword,
-  doSignInWithGoogle
+  doSignInWithGoogle,
 } from "../firebase/auth"
+import { getAdditionalUserInfo } from "firebase/auth"
+import { auth } from "../firebase/firebase";
 
-interface AuthScreenProps {
-  onAuthComplete: () => void
-}
+interface AuthScreenProps {}
 
-export function AuthScreen({ onAuthComplete }: AuthScreenProps) {
+export function AuthScreen({}: AuthScreenProps) {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        navigate("/dashboard");
+      }
+    });
+    return unsubscribe;
+  }, [navigate]);
+
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string>("")
 
@@ -30,7 +42,7 @@ export function AuthScreen({ onAuthComplete }: AuthScreenProps) {
     setErrorMessage("")
     try {
       await doSignInWithEmailAndPassword(email, password)
-      onAuthComplete()
+      navigate("/dashboard")
     } catch (err: unknown) {
       if (err instanceof Error) setErrorMessage(err.message)
       else setErrorMessage("An unknown error occurred")
@@ -55,7 +67,7 @@ export function AuthScreen({ onAuthComplete }: AuthScreenProps) {
     setErrorMessage("")
     try {
       await doCreateUserWithEmailAndPassword(email, password)
-      onAuthComplete()
+      navigate("/profile-setup")
     } catch (err: unknown) {
       if (err instanceof Error) setErrorMessage(err.message)
       else setErrorMessage("An unknown error occurred")
@@ -68,8 +80,14 @@ export function AuthScreen({ onAuthComplete }: AuthScreenProps) {
     setIsLoading(true)
     setErrorMessage("")
     try {
-      await doSignInWithGoogle()
-      onAuthComplete()
+      const result = await doSignInWithGoogle()
+      const isNewUser = getAdditionalUserInfo(result)?.isNewUser
+
+      if (isNewUser) {
+        navigate("/profile-setup")
+      } else {
+        navigate("/dashboard")
+      }
     } catch (err: unknown) {
       if (err instanceof Error) setErrorMessage(err.message)
       else setErrorMessage("An unknown error occurred")
@@ -88,7 +106,7 @@ export function AuthScreen({ onAuthComplete }: AuthScreenProps) {
             alt="Meal planning illustration" 
             className="w-80 h-80 object-cover rounded-2xl mb-8 mx-auto"
           />
-          <h2 className="text-2xl mb-4 text-foreground">Smart Meal Planning</h2>
+          <h2 className="text-2xl mb-4 text-foreground">Recipe App</h2>
           <p className="text-muted-foreground">
             Plan your meals, track nutrition, and achieve your health goals with personalized recommendations.
           </p>

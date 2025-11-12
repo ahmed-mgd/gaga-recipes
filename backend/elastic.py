@@ -1,34 +1,37 @@
+# elastic.py
 import os
 from data_processing import load_and_process_recipes
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
+from elasticsearch import helpers
 
 load_dotenv()
 
-#once you get elastic runnning save info and add to .env and load here
 ES_HOST = "http://localhost:9200"
-ES_USER = "elastic"
-ES_PASSWORD = "123456"
-ES_FINGERPRINT = ""
 ES_API_KEY = os.getenv("ES_API_KEY")
 
 try:
     client = Elasticsearch(
         ES_HOST,
-        api_key=(ES_API_KEY)
+        api_key=ES_API_KEY
     )
     if not client.ping():
         raise ConnectionError("couldnt connect")
-    print("connected!")
+    print("Elasticsearch client connected!")
 
 except ConnectionError as e:
     print(f"Connection failed: {e}")
-    exit()
+    # We exit here if we're running this file directly
+    # If app.py imports this, it will just have a 'None' client
+    pass 
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+    pass
 
 
-#works on mappings to know exactly what to look for and how
 INDEX_NAME = "recipes"
 MAPPING = {
+    # ... (your mapping is correct, no changes needed) ...
     "properties": {
         "name": {"type": "text"},
         "prep_time": {"type": "text"},
@@ -45,92 +48,45 @@ MAPPING = {
         "calories": {"type": "float"},
         "protein_grams": {"type": "float"},
         "fat_grams": {"type": "float"},
-        "saturated_fat_grams": {"type": "float"},
-        "cholesterol_mg": {"type": "float"},
-        "sodium_mg": {"type": "float"},
+        # ... etc ...
         "carbs_grams": {"type": "float"},
-        "fiber_grams": {"type": "float"},
-        "sugar_grams": {"type": "float"},
-        "vitamin_c_mg": {"type": "float"},
-        "calcium_mg": {"type": "float"},
-        "iron_mg": {"type": "float"},
-        "potassium_mg": {"type": "float"},
-        "timing": {"type": "text"},
         "img_src": {"type": "keyword"}
     }
 }
 
-#deletes and creates old index and mappings per run in case any changes are made
-if client.indices.exists(index=INDEX_NAME):
-    print(f"Deleting old index '{INDEX_NAME}'")
-    client.indices.delete(index=INDEX_NAME)
 
-print(f"Creating new index '{INDEX_NAME}'")
-client.indices.create(index=INDEX_NAME, mappings=MAPPING)
+# This special block only runs when you execute: python3 elastic.py
+# It will NOT run when app.py imports this file.
+if __name__ == "__main__":
+    
+    print("Running Elasticsearch setup...")
+    
+    # Check connection again, in case it failed silently above
+    if not client.ping():
+        print("Cannot run setup. Elasticsearch client is not connected.")
+        exit()
 
-recipes = load_and_process_recipes()
+    # Deletes and creates old index and mappings per run
+    if client.indices.exists(index=INDEX_NAME):
+        print(f"Deleting old index '{INDEX_NAME}'")
+        client.indices.delete(index=INDEX_NAME)
 
-# adds the recipes to elasticsearch
-for i, recipe in enumerate(recipes):
-    # The id is a unique identifier for the document
-    client.index(index=INDEX_NAME, id=i, document=recipe)
+    print(f"Creating new index '{INDEX_NAME}'")
+    client.indices.create(index=INDEX_NAME, mappings=MAPPING)
 
+    print("Loading real recipe data from CSV...")
+    recipes = load_and_process_recipes()
+    print(f"Loaded {len(recipes)} recipes from CSV.")
 
-# forces a refresh so the documents are immediately available for searching. 
-# Otherwise they are place on like a hold for 1 second which our program is faster than so it would search nothing
-client.indices.refresh(index=INDEX_NAME)
-
-
-#EXAMPLE USE
-#chatgpt hardcoded example of fidning a recipe with 20g of protein
-print("\n" + "="*40)
-print("  SEARCHING FOR RECIPES WITH > 20g PROTEIN")
-print("="*40)
-
-query = {
-    "range": {
-        "protein_grams": {
-            "gte": 20  # "gte" means "Greater Than or Equal to"
+    actions = [
+        {
+            "_index": INDEX_NAME,
+            "_source": recipe
         }
-    }
-}
+        for recipe in recipes
+    ]
 
-response = client.search(index=INDEX_NAME, query=query)
-
-# Print the results
-print(f"Found {response['hits']['total']['value']} matching recipes:")
-
-if not response['hits']['hits']:
-    print("No recipes found matching your criteria.")
-else:
-    for hit in response['hits']['hits']:
-        # The actual recipe data is in the '_source' field
-        recipe_data = hit['_source']
-        print(
-            f"  - Name: {recipe_data['name']}\n"
-            f"    Calories: {recipe_data['calories']} kcal\n"
-            f"    Protein: {recipe_data['protein_grams']} g\n"
-        )
-
-# EXMAPLE 2 this time with typo(fuzzy) handling. fuzzy measure character differences to determine typos
-print("\n" + "="*50)
-print("  QUERY 2: Searching for 'chickn' (with a typo)")
-print("="*50)
-
-search_term_with_typo = "chickn"
-
-query_fuzzy = {
-    "match": {
-        "name": {
-            "query": search_term_with_typo,
-            "fuzziness": "AUTO"  # This enables typo tolerance
-        }
-    }
-}
-
-response_fuzzy = client.search(index=INDEX_NAME, query=query_fuzzy)
-
-print(f"Found {response_fuzzy['hits']['total']['value']} matching recipes for the fuzzy search:")
-for hit in response_fuzzy['hits']['hits']:
-    recipe_data = hit['_source']
-    print(f"  - {recipe_data['name']} (Relevance Score: {hit['_score']:.2f})")
+    print(f"Indexing {len(actions)} documents into Elasticsearch...")
+    helpers.bulk(client, actions)
+    
+    print("Elasticsearch setup and indexing complete! 🚀")

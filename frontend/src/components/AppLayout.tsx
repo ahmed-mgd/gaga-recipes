@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { auth } from "../firebase/firebase";
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -11,14 +13,12 @@ import {
   X
 } from "lucide-react";
 
-interface AppLayoutProps {
-  children: React.ReactNode;
-  currentScreen: string;
-  onNavigate: (screen: string) => void;
-  onLogout: () => void;
-}
+interface AppLayoutProps {}
 
-export function AppLayout({ children, currentScreen, onNavigate, onLogout }: AppLayoutProps) {
+export function AppLayout({}: AppLayoutProps) {
+  const navigate = useNavigate();
+  const currentScreen = useLocation().pathname.split("/")[1] || "dashboard";
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const navItems = [
@@ -34,9 +34,18 @@ export function AppLayout({ children, currentScreen, onNavigate, onLogout }: App
       case "recipes": return "Recipe Search";
       case "meal-plan": return "Weekly Meal Plan";
       case "settings": return "Settings";
-      default: return "Smart Meal Planner";
+      default: return "Recipe App";
     }
   };
+
+  const onLogout = async () => {
+    await auth.signOut();
+    navigate("/auth");
+  }
+
+  const onNavigate = (screen: string) => {
+    navigate(`/${screen}`);
+  }
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -93,7 +102,7 @@ export function AppLayout({ children, currentScreen, onNavigate, onLogout }: App
 
         {/* Main Content */}
         <main className="flex-1">
-          {children}
+          <Outlet />
         </main>
       </div>
     </div>
