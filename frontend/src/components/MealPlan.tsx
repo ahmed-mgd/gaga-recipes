@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { Card, CardContent } from "./ui/card";
-import { recipes as initialRecipes, recipes } from "./data/recipes.ts";
+import { recipes } from "./data/recipes";   // 👍 keep THIS and only this
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { Clock, Users, ChefHat, Trash2 } from "lucide-react";
-import { recipes } from "./data/recipes"; // your master recipe list
 
 interface Recipe {
   id: string;
