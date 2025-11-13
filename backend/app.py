@@ -8,13 +8,15 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 from firebase_admin import auth
 from elastic import client, INDEX_NAME
-import random
+from macro_calculator import macros_calc 
+
 
 # Configuration
 DEBUG = True
 
 # Instantiate the app
 app = Flask(__name__)
+CORS(app, origins=["http://localhost:3000"])  # allow frontend
 app.config.from_object(__name__)
 
 # Initialize Firebase Admin SDK
@@ -143,7 +145,7 @@ def get_recommendations(user_id):
         # Get daily goals from Firestore
         daily_calories = float(macros.get('calories', 2000))
         daily_protein = float(macros.get('protein', 50))
-        daily_carbs = float(macros.get('carbohydrates', 300))
+        daily_carbs = float(macros.get('carbs', 300))
         daily_fat = float(macros.get('fat', 70))
 
     except Exception as e:
@@ -361,26 +363,98 @@ def delete_favorite_by_url():
     except Exception as e:
         return jsonify({"error": f"Failed to delete favorite by url: {e}"}), 500
     
-@app.route('/api/mealplan', methods=['GET'])
-def generate_meal_plan():
- 
+@app.route('/calculate_macros', methods=['POST'])
+def calculate_macros():
+    data = request.get_json()
+    uid = data.get("uid")
+
+    # Compute macros
+    macros = macros_calc(data)
+
+    # ✅ Save to Firebase
+    if uid:
+        db.collection("users").document(uid).set({
+            "macros": macros
+        }, merge=True)
+
+    return jsonify(macros)
+
+
+@app.route('/meal-plan', methods=['POST'])
+def save_meal_plan():
+    """Save or overwrite user's meal plan.
+    
+    Expected JSON body:
+    {
+        "plan": {
+            "Monday": {"Breakfast": recipe, "Lunch": recipe, "Dinner": recipe},
+            "Tuesday": {...},
+            ... (7 days total)
+        }
+    }
+    """
     if not db:
         return jsonify({"error": "Firebase not initialized"}), 500
+
+    try:
+        data = request.get_json()
+    except Exception:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    if not data or 'plan' not in data:
+        return jsonify({"error": "Missing 'plan' field in request body"}), 400
 
     auth_header = request.headers.get('Authorization', '')
     id_token = None
     if auth_header.startswith('Bearer '):
         id_token = auth_header.split(' ', 1)[1]
     else:
+        id_token = data.get('idToken') if isinstance(data, dict) else None
+
+    if not id_token:
         return jsonify({"error": "Missing Authorization token"}), 401
 
     try:
-        decoded_token = auth.verify_id_token(id_token)
-        uid = decoded_token.get('uid')
-        if not uid:
-             return jsonify({"error": "Could not identify user from token"}), 401
+        decoded = auth.verify_id_token(id_token)
+        uid = decoded.get('uid') or decoded.get('sub')
     except Exception as e:
         return jsonify({"error": f"Invalid auth token: {e}"}), 401
+
+    try:
+        # Save/overwrite the meal plan at users/{uid}/meal_plan/current
+        db.collection('users').document(uid).collection('meal_plan').document('current').set(
+            {"plan": data['plan']},
+            merge=True
+        )
+        return jsonify({"status": "success", "message": "Meal plan saved"}), 201
+    except Exception as e:
+        return jsonify({"error": f"Failed to save meal plan: {e}"}), 500
+
+
+@app.route('/meal-plan', methods=['GET'])
+def get_meal_plan():
+    """Retrieve user's saved meal plan."""
+    if not db:
+        return jsonify({"error": "Firebase not initialized"}), 500
+
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({"error": "Missing Authorization token"}), 401
+    id_token = auth_header.split(' ', 1)[1]
+
+    try:
+        decoded = auth.verify_id_token(id_token)
+        uid = decoded.get('uid') or decoded.get('sub')
+    except Exception as e:
+        return jsonify({"error": f"Invalid auth token: {e}"}), 401
+
+    try:
+        doc = db.collection('users').document(uid).collection('meal_plan').document('current').get()
+        if not doc.exists:
+            return jsonify({"error": "No meal plan found"}), 404
+        return jsonify(doc.to_dict())
+    except Exception as e:
+        return jsonify({"error": f"Failed to retrieve meal plan: {e}"}), 500
 
     try:
         favs_ref = db.collection('users').document(uid).collection('favorites')

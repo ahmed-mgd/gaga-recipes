@@ -8,6 +8,8 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Checkbox } from "./ui/checkbox";
+import { Macros } from "./ProfileSetup";
+
 
 interface ProfileData {
   age: string;
@@ -109,6 +111,64 @@ export function Settings() {
 
     setSaving(true);
     setMessage(null);
+
+    try {
+      // --- 1️⃣ Send profile data to backend to calculate macros ---
+      console.log("Sending profile data to backend:", profileData);
+
+      const response = await fetch("http://localhost:5000/calculate_macros", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: user.uid,
+          age: Number(profileData.age),
+          gender: profileData.gender,
+          height: Number(profileData.height),
+          weight: Number(profileData.weight),
+          activity_level: profileData.activityLevel,
+          goal: profileData.goal,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend error: ${response.status} ${response.statusText}`);
+      }
+
+      const macros: Macros = await response.json();
+      console.log("Backend returned macros:", macros);
+
+      // --- 2️⃣ Save profile + macros to Firestore ---
+      const userRef = doc(db, "users", user.uid);
+      await setDoc(
+        userRef,
+        {
+          profile: profileData,
+          macros,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      console.log("Profile and macros successfully saved to Firebase!");
+      setMessage("Profile and macros updated.");
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+      setMessage("Failed to save profile. Check console.");
+    } finally {
+      setSaving(false);
+    }
+};
+
+ /* const handleSave = async (e?: React.FormEvent) => {
+    e?.preventDefault?.();
+    const user = auth.currentUser;
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
     try {
       const userRef = doc(db, "users", user.uid);
       await setDoc(userRef, {
@@ -123,7 +183,7 @@ export function Settings() {
     } finally {
       setSaving(false);
     }
-  };
+  };*/
 
   if (loading) return <div className="p-6">Loading...</div>;
 
