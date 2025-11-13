@@ -6,6 +6,8 @@ import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { Search, Clock, Users, Heart, ChevronLeft, ChevronRight } from "lucide-react";
+import { auth } from "../firebase/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 interface Recipe {
   id?: string;
@@ -45,19 +47,103 @@ export function RecipeSearch() {
 
   const PER_PAGE = 18;
 
+  // Load favorites from database on mount
   useEffect(() => {
-    // initial sample fetch — favorites remain in-memory only
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const token = await user.getIdToken();
+          const res = await fetch("http://localhost:5000/favorites", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (res.ok) {
+            const favorites = await res.json();
+            // Create a map of URL -> true for quick lookup
+            const favoritesMap: Record<string, boolean> = {};
+            favorites.forEach((fav: Recipe) => {
+              const url = fav.url || fav.name || "";
+              if (url) {
+                favoritesMap[url] = true;
+              }
+            });
+            setSavedRecipes(favoritesMap);
+          }
+        } catch (err) {
+          console.error("Failed to load favorites", err);
+        }
+      }
+    });
+
+    // Initial sample fetch
     fetchResults("a");
+
+    return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toggleSaved = (id: string) => {
-    setSavedRecipes((prev) => {
-      const next = { ...prev };
-      if (next[id]) delete next[id];
-      else next[id] = true;
-      return next;
-    });
+  const toggleSaved = async (recipe: Recipe) => {
+    const user = auth.currentUser;
+    if (!user) {
+      console.warn("User not authenticated");
+      return;
+    }
+
+    const url = recipe.url || recipe.name || "";
+    if (!url) {
+      console.warn("Recipe has no URL or name to use as identifier");
+      return;
+    }
+
+    const isCurrentlySaved = !!savedRecipes[url];
+
+    try {
+      const token = await user.getIdToken();
+
+      if (isCurrentlySaved) {
+        // Remove from favorites
+        const res = await fetch(`http://localhost:5000/favorites?url=${encodeURIComponent(url)}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (res.ok) {
+          setSavedRecipes((prev) => {
+            const next = { ...prev };
+            delete next[url];
+            return next;
+          });
+        } else {
+          const error = await res.json();
+          console.error("Failed to remove favorite", error);
+        }
+      } else {
+        // Add to favorites
+        const res = await fetch("http://localhost:5000/add_recipe", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(recipe),
+        });
+
+        if (res.ok) {
+          setSavedRecipes((prev) => ({
+            ...prev,
+            [url]: true,
+          }));
+        } else {
+          const error = await res.json();
+          console.error("Failed to add favorite", error);
+        }
+      }
+    } catch (err) {
+      console.error("Error toggling favorite", err);
+    }
   };
 
   const safeList = (val?: string[] | string): string[] => {
@@ -207,7 +293,9 @@ export function RecipeSearch() {
             const ingredients = safeList(recipe.ingredients);
             const directions = safeList(recipe.directions);
 
-            const isSaved = !!savedRecipes[id];
+            // Check if saved by URL (what backend uses) or fallback to id
+            const recipeUrl = recipe.url || recipe.name || "";
+            const isSaved = recipeUrl ? !!savedRecipes[recipeUrl] : !!savedRecipes[id];
 
             return (
               <Card
@@ -228,7 +316,7 @@ export function RecipeSearch() {
                     className="absolute top-2 right-2 bg-background/80 hover:bg-background"
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleSaved(id);
+                      toggleSaved(recipe);
                     }}
                   >
                     <Heart
@@ -334,12 +422,12 @@ export function RecipeSearch() {
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (selectedRecipe) toggleSaved(selectedRecipe.id ?? selectedRecipe.name ?? "unknown");
+                  if (selectedRecipe) toggleSaved(selectedRecipe);
                 }}
               >
                 <Heart
                   className={`h-4 w-4 ${
-                    selectedRecipe && savedRecipes[(selectedRecipe.id ?? selectedRecipe.name ?? "")] ? "fill-red-500 text-red-500" : "text-muted-foreground"
+                    selectedRecipe && (savedRecipes[selectedRecipe.url || selectedRecipe.name || ""] || false) ? "fill-red-500 text-red-500" : "text-muted-foreground"
                   }`}
                 />
               </Button>
