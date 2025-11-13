@@ -1,0 +1,291 @@
+# Gaga Recipes - Complete Feature List
+
+## Authentication & User Management
+
+### Authentication Features
+- **Email/Password Sign Up** - Create new account with email and password
+- **Email/Password Sign In** - Login with existing credentials
+- **Google Sign-In** - OAuth authentication via Google
+- **Protected Routes** - Automatic redirect to login for unauthenticated users
+- **Session Management** - Persistent authentication state
+- **Logout** - Secure session termination
+
+### User Profile
+- **Profile Setup Wizard** - Multi-step onboarding process (4 steps)
+  - Personal Information (age, gender, height, weight)
+  - Activity Level Selection (Sedentary, Light, Moderate, Active, Very Active)
+  - Dietary Restrictions (Vegetarian, Vegan, Gluten-free, Dairy-free)
+  - Health Goals (Lose Weight, Maintain Weight, Gain Muscle)
+- **Profile Management** - Edit profile information in Settings
+- **User Demographics API** - Retrieve user profile data
+
+---
+
+## Dashboard & Overview
+
+### Dashboard Features
+- **Daily Macros Display** - Shows target calories, protein, carbs, and fat
+- **Quick Actions** - Direct navigation to key features
+  - Generate Meal Plan button
+  - Browse Recipes button
+- **Urgent Ingredients** - Display ingredients that need to be used soon
+- **Recent Activity** - Track user actions and meal plan creation
+- **Welcome Message** - Personalized greeting
+
+---
+
+## Recipe Search & Discovery
+
+### Search Features
+- **Full-Text Search** - Search recipes by name or ingredients using Elasticsearch
+- **Advanced Filters**:
+  - Minimum protein (grams)
+  - Calorie range (min/max)
+- **Fuzzy Matching** - Elasticsearch fuzzy search for typos
+- **Pagination** - Browse results in pages (18 recipes per page)
+- **Real-time Results** - Instant search results as you type
+
+### Recipe Display
+- **Recipe Cards** - Visual cards with:
+  - Recipe image with fallback
+  - Recipe name
+  - Calories, protein, carbs, fat
+  - Cook time
+  - Servings
+  - Difficulty rating (based on rating)
+- **Recipe Details Dialog** - Full recipe view with:
+  - Large image
+  - Complete nutrition information
+  - Ingredients list
+  - Step-by-step instructions
+  - Tags/categories
+
+### Recipe Data
+- **Elasticsearch Integration** - Fast, scalable recipe search
+- **Recipe Database** - Large collection of recipes with:
+  - Nutritional information
+  - Ingredients
+  - Cooking instructions
+  - Images
+  - Ratings
+
+---
+
+## Favorites System
+
+### Favorite Features
+- **Save Recipes** - Heart icon to favorite recipes
+- **View Favorites** - Access all saved recipes
+- **Remove Favorites** - Unfavorite recipes
+- **Persistent Storage** - Favorites saved to Firestore database
+- **Sync Across Devices** - Favorites accessible from any device
+- **Firestore Storage** - Saved at `/users/{uid}/favorites/{recipe_id}`
+
+---
+
+## Meal Planning
+
+### Weekly Meal Plan
+- **7-Day Meal Plan** - Complete weekly schedule (Monday-Sunday)
+- **3 Meals Per Day** - Breakfast, Lunch, Dinner for each day
+- **21 Total Meals** - Full week coverage
+- **Visual Grid Layout** - Easy-to-read weekly calendar view
+- **Recipe Cards** - Each meal shows recipe card with image and details
+
+### Meal Plan Generation
+- **Personalized Generation** - Uses user's favorite recipes first
+- **Smart Fallback** - Fills remaining slots with macro-matched recipes from Elasticsearch
+- **Macro-Based Recommendations** - Recipes match user's calorie/protein/carb/fat goals
+- **No Duplicates** - Avoids repeating recipes within the same week
+- **Random Distribution** - Recipes shuffled for variety
+- **Local Recipe Fallback** - Uses local recipes if needed
+
+### Meal Plan Persistence
+- **Weekly Rollover** - Automatically generates new plan every Monday
+- **Plan Persistence** - Plan saved to Firestore and persists across sessions
+- **Manual Regeneration** - "Generate New Plan" button to create new plan anytime
+- **Week Tracking** - Plans tagged with `week_start` date (Monday of week)
+- **Firestore Storage** - Saved at `/users/{uid}/meal_plan/current`
+
+### Meal Plan Management
+- **Delete/Replace Recipes** - Remove individual recipes from plan
+- **Recipe Details** - Click any meal to view full recipe details
+- **Week Navigation** - Switch between current/next/previous week (UI ready)
+- **Loading States** - Shows loading indicator while fetching plan
+
+---
+
+## Nutrition & Macros
+
+### Macro Calculation
+- **Automatic Calculation** - Calculates daily macros based on:
+  - Age, gender, height, weight
+  - Activity level
+  - Health goals (lose/maintain/gain)
+- **BMR Calculation** - Basal Metabolic Rate computation
+- **TDEE Calculation** - Total Daily Energy Expenditure
+- **Macro Distribution** - Optimal protein/carb/fat ratios
+- **Backend API** - `/calculate_macros` endpoint
+
+### Macro Display
+- **Daily Targets** - Shows target calories, protein, carbs, fat
+- **Per-Meal Targets** - Calculated as 1/3 of daily goals
+- **Macro Matching** - Recipe recommendations match macro targets
+
+---
+
+## Settings
+
+### Profile Settings
+- **Edit Personal Info** - Update age, gender, height, weight
+- **Activity Level** - Change activity level
+- **Dietary Restrictions** - Update dietary preferences
+- **Health Goals** - Modify weight goals
+- **Auto-Save** - Changes saved automatically to Firestore
+
+### Application Settings
+- **Profile Management** - Complete profile editing interface
+- **Data Persistence** - All settings saved to Firestore
+
+---
+
+## Backend API Endpoints
+
+### Recipe Endpoints
+- **GET `/api/search`** - Search recipes with filters (query, min_protein, min_calories, max_calories)
+- **GET `/api/recommendations/<user_id>`** - Get personalized recipe recommendations based on macros
+
+### Favorites Endpoints
+- **GET `/favorites`** - Retrieve all user's favorite recipes
+- **POST `/add_recipe`** - Add recipe to favorites
+- **DELETE `/favorites/<fav_id>`** - Delete favorite by ID
+- **DELETE `/favorites?url=...`** - Delete favorite by URL
+
+### Meal Plan Endpoints
+- **GET `/meal-plan`** - Retrieve current meal plan (auto-generates if new week)
+- **POST `/meal-plan`** - Save meal plan
+- **POST `/meal-plan/generate`** - Generate and save new meal plan
+
+### User Endpoints
+- **GET `/user_demographics/<user_id>`** - Get user profile data
+- **POST `/calculate_macros`** - Calculate and save user macros
+
+---
+
+## User Interface
+
+### Design System
+- **Modern UI** - Built with Radix UI components
+- **Responsive Design** - Works on desktop, tablet, and mobile
+- **Dark/Light Theme Support** - Theme switching capability (via next-themes)
+- **Accessible Components** - WCAG-compliant UI elements
+
+### Navigation
+- **Sidebar Navigation** - Collapsible sidebar with main sections
+- **Top Navigation Bar** - Header with page title and user avatar
+- **Route Protection** - Automatic redirects for authentication
+- **404 Page** - Custom not found page
+
+### UI Components
+- **Cards** - Recipe cards, dashboard cards
+- **Dialogs** - Recipe details, modals
+- **Buttons** - Various button styles and sizes
+- **Inputs** - Form inputs, search bars
+- **Badges** - Tags, labels, difficulty indicators
+- **Progress Bars** - Profile setup progress
+- **Tabs** - Auth screen tabs (Sign In/Sign Up)
+- **Select Dropdowns** - Activity level, goals, dietary restrictions
+- **Radio Groups** - Single choice selections
+- **Checkboxes** - Multiple choice selections
+
+---
+
+## Data Storage
+
+### Firebase Firestore Collections
+- **`users/{uid}`** - User profile and macros
+- **`users/{uid}/favorites/{recipe_id}`** - User's favorite recipes
+- **`users/{uid}/meal_plan/current`** - Current weekly meal plan
+
+### Data Structure
+- **User Profile** - Age, gender, height, weight, activity level, dietary restrictions, goals
+- **Macros** - Calories, protein, carbs, fat targets
+- **Favorites** - Complete recipe objects
+- **Meal Plans** - Week start date + 7-day plan structure
+
+---
+
+## Technical Features
+
+### Backend
+- **Flask REST API** - Python backend with Flask framework
+- **Elasticsearch Integration** - Advanced recipe search and indexing
+- **Firebase Admin SDK** - Server-side Firebase operations
+- **CORS Support** - Cross-origin resource sharing configured
+- **Environment Variables** - Secure configuration via .env file
+- **Error Handling** - Comprehensive error handling and logging
+
+### Frontend
+- **React 18** - Modern React with hooks
+- **TypeScript** - Type-safe development
+- **React Router** - Client-side routing
+- **Vite** - Fast build tool and dev server
+- **Firebase Client SDK** - Client-side Firebase integration
+
+### Data Processing
+- **CSV Recipe Import** - Load recipes from CSV files
+- **Nutrition Extraction** - Parse nutrition data from strings
+- **Recipe Transformation** - Convert backend format to frontend format
+- **Data Validation** - Input validation and sanitization
+
+---
+
+## Performance & Optimization
+
+- **Lazy Loading** - Components loaded on demand
+- **Image Fallbacks** - Graceful handling of missing images
+- **Efficient Search** - Elasticsearch for fast recipe queries
+- **Caching** - Meal plans cached in Firestore
+- **Optimized Rendering** - React best practices for performance
+
+---
+
+## User Experience Features
+
+- **Loading States** - Visual feedback during data fetching
+- **Error Messages** - User-friendly error handling
+- **Empty States** - Helpful messages when no data available
+- **Smooth Transitions** - CSS transitions for better UX
+- **Responsive Grids** - Adaptive layouts for different screen sizes
+- **Keyboard Navigation** - Enter key to search, keyboard shortcuts
+
+---
+
+## Security Features
+
+- **Firebase Authentication** - Secure user authentication
+- **Token-Based Auth** - JWT tokens for API requests
+- **Protected Endpoints** - Backend validates user tokens
+- **Environment Variables** - Sensitive data in .env (not committed)
+- **CORS Configuration** - Restricted origins for API access
+- **Input Validation** - Server-side validation of all inputs
+
+---
+
+## Future-Ready Features
+
+- **Week Navigation UI** - Ready for multiple week support
+- **Ingredient Tracking** - UI prepared for ingredient management
+- **Activity Logging** - Recent activity tracking structure
+- **Scalable Architecture** - Easy to add new features
+
+---
+
+## Core Value Propositions
+
+1. **Personalized Meal Planning** - AI-driven meal plans based on user preferences and macros
+2. **Smart Recipe Discovery** - Advanced search with macro matching
+3. **Favorites Management** - Easy recipe saving and organization
+4. **Nutrition Tracking** - Automatic macro calculation and display
+5. **Weekly Persistence** - Stable meal plans that persist across sessions
+6. **Seamless Experience** - Modern, responsive UI with smooth interactions
