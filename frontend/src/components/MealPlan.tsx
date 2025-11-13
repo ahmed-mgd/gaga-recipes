@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "./ui/card";
-import { recipes } from "./data/recipes";   // 👍 keep THIS and only this
+import { recipes } from "./data/recipes";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { Clock, Users, ChefHat, Trash2 } from "lucide-react";
+import { Clock, Users, ChefHat, Trash2, RefreshCw, Search as SearchIcon } from "lucide-react";
 import { auth } from "../firebase/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { Input } from "./ui/input";
 
 interface Recipe {
   id: string;
@@ -25,29 +26,6 @@ interface Recipe {
 }
 
 interface BackendRecipe {
-  id?: string;
-  _id?: string;
-  name?: string;
-  img_src?: string;
-  image?: string;
-  image_url?: string;
-  calories?: number;
-  protein_grams?: number;
-  protein?: number;
-  carbs_grams?: number;
-  carbs?: number;
-  fat_grams?: number;
-  fat?: number;
-  cook_time?: string;
-  total_time?: string;
-  prep_time?: string;
-  servings?: string | number;
-  yield?: string | number;
-  ingredients?: string[] | string;
-  directions?: string[] | string;
-  instructions?: string[] | string;
-  tags?: string[];
-  url?: string;
   [key: string]: any;
 }
 
@@ -56,247 +34,59 @@ export function MealPlan() {
   const meals = ["Breakfast", "Lunch", "Dinner"];
 
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-  const [mealPlan, setMealPlan] = useState<Record<string, Record<string, Recipe>> | null>(null);
+  const [mealPlan, setMealPlan] = useState<Record<string, Record<string, Recipe | null>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedWeek, setSelectedWeek] = useState("current");
+  const [pendingReplacements, setPendingReplacements] = useState<Set<string>>(new Set());
 
-  // Transform backend recipe to frontend format
+  // Replacement modal state
+  const [replacementOpen, setReplacementOpen] = useState(false);
+  const [replacementSlot, setReplacementSlot] = useState<{ day: string; meal: string } | null>(null);
+  const [suggestions, setSuggestions] = useState<Recipe[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Recipe[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  // Helpers
+  const slotKey = (day: string, meal: string) => `${day}::${meal}`;
+
   function transformRecipe(backendRecipe: BackendRecipe): Recipe | null {
     if (!backendRecipe || !backendRecipe.name) return null;
 
-    // Generate ID
-    const id = backendRecipe.id || backendRecipe._id || 
-      (backendRecipe.url || backendRecipe.name || "").replace(/\s+/g, "-").toLowerCase();
+    const id = backendRecipe.id || backendRecipe._id || (backendRecipe.url || backendRecipe.name || "").replace(/\s+/g, "-").toLowerCase();
 
-    // Parse ingredients
     let ingredients: string[] = [];
-    if (Array.isArray(backendRecipe.ingredients)) {
-      ingredients = backendRecipe.ingredients;
-    } else if (typeof backendRecipe.ingredients === "string") {
-      ingredients = backendRecipe.ingredients
-        .split(/[,;\n\r]+/)
-        .map((ing: string) => ing.trim())
-        .filter((ing: string) => ing.length > 0);
-    }
+    if (Array.isArray(backendRecipe.ingredients)) ingredients = backendRecipe.ingredients;
+    else if (typeof backendRecipe.ingredients === "string") ingredients = backendRecipe.ingredients.split(/[,;\n\r]+/).map((s: string) => s.trim()).filter(Boolean);
 
-    // Parse instructions
     let instructions: string[] = [];
-    const directionsStr = backendRecipe.directions || backendRecipe.instructions || "";
-    if (Array.isArray(directionsStr)) {
-      instructions = directionsStr;
-    } else if (typeof directionsStr === "string") {
-      // Try splitting by newlines first
-      instructions = directionsStr
-        .split(/[\n\r]+/)
-        .map((inst: string) => inst.trim())
-        .filter((inst: string) => inst.length > 0);
-      
-      // If that didn't work, try periods
-      if (instructions.length <= 1) {
-        instructions = directionsStr
-          .split(/\.\s+/)
-          .map((inst: string) => inst.trim())
-          .filter((inst: string) => inst.length > 0);
-      }
+    const dir = backendRecipe.directions || backendRecipe.instructions || "";
+    if (Array.isArray(dir)) instructions = dir;
+    else if (typeof dir === "string") {
+      instructions = dir.split(/[\n\r]+/).map((s: string) => s.trim()).filter(Boolean);
+      if (instructions.length <= 1) instructions = dir.split(/\.\s+/).map((s: string) => s.trim()).filter(Boolean);
     }
 
-    const calories = backendRecipe.calories !== undefined ? Number(backendRecipe.calories) : 0;
-    const protein = backendRecipe.protein_grams !== undefined ? Number(backendRecipe.protein_grams) : 
-                   (backendRecipe.protein !== undefined ? Number(backendRecipe.protein) : 0);
-    const carbs = backendRecipe.carbs_grams !== undefined ? Number(backendRecipe.carbs_grams) : 
-                  (backendRecipe.carbs !== undefined ? Number(backendRecipe.carbs) : 0);
-    const fat = backendRecipe.fat_grams !== undefined ? Number(backendRecipe.fat_grams) : 
-                (backendRecipe.fat !== undefined ? Number(backendRecipe.fat) : 0);
-    
+    const calories = Number(backendRecipe.calories ?? backendRecipe.calories_kcal ?? 0) || 0;
+    const protein = Number(backendRecipe.protein_grams ?? backendRecipe.protein ?? 0) || 0;
+    const carbs = Number(backendRecipe.carbs_grams ?? backendRecipe.carbs ?? 0) || 0;
+    const fat = Number(backendRecipe.fat_grams ?? backendRecipe.fat ?? 0) || 0;
+
     return {
       id,
       name: backendRecipe.name || "",
       image: backendRecipe.img_src || backendRecipe.image || backendRecipe.image_url || "",
-      calories: isNaN(calories) ? 0 : calories,
-      protein: isNaN(protein) ? 0 : protein,
-      carbs: isNaN(carbs) ? 0 : carbs,
-      fat: isNaN(fat) ? 0 : fat,
+      calories,
+      protein,
+      carbs,
+      fat,
       cookTime: backendRecipe.cook_time || backendRecipe.total_time || backendRecipe.prep_time || "",
       servings: Number(backendRecipe.servings || backendRecipe.yield || 1) || 1,
       ingredients,
       instructions,
       tags: Array.isArray(backendRecipe.tags) ? backendRecipe.tags : [],
     };
-  }
-
-  // Fisher-Yates shuffle algorithm
-  function fisherYatesShuffle<T>(array: T[]): T[] {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  }
-
-  // Generate personalized meal plan
-  async function generatePersonalizedMealPlan(uid: string): Promise<Record<string, Record<string, Recipe>>> {
-    const plan: Record<string, Record<string, Recipe>> = {};
-    
-    // Initialize empty plan structure with fallback recipe
-    const fallbackRecipe: Recipe = recipes[0] || {
-      id: "fallback",
-      name: "Recipe",
-      image: "",
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      cookTime: "",
-      servings: 1,
-      ingredients: [],
-      instructions: [],
-      tags: [],
-    };
-    
-    for (const day of days) {
-      plan[day] = {};
-      for (const meal of meals) {
-        plan[day][meal] = fallbackRecipe; // Temporary placeholder
-      }
-    }
-
-    try {
-      // 1. Fetch all favorite recipes
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        return generateRandomMealPlan();
-      }
-
-      const favoritesRes = await fetch("http://localhost:5000/favorites", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      let favorites: Recipe[] = [];
-      if (favoritesRes.ok) {
-        const favoritesData: BackendRecipe[] = await favoritesRes.json();
-        favorites = favoritesData
-          .map(transformRecipe)
-          .filter((r): r is Recipe => r !== null);
-      }
-
-      // 2. Shuffle favorites
-      favorites = fisherYatesShuffle(favorites);
-
-      // 3. Compute remaining slots
-      const remaining = 21 - favorites.length;
-
-      // 4. Fetch fallback recommendations from backend
-      let fallbacks: Recipe[] = [];
-      if (remaining > 0) {
-        try {
-          const recommendationsRes = await fetch(`http://localhost:5000/api/recommendations/${uid}`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-
-          if (recommendationsRes.ok) {
-            const recommendationsData: BackendRecipe[] = await recommendationsRes.json();
-            const transformed = recommendationsData
-              .map(transformRecipe)
-              .filter((r): r is Recipe => r !== null);
-
-            // 5. Remove fallback recipes that overlap with favorites
-            const favoriteIds = new Set(favorites.map((f) => f.id));
-            fallbacks = transformed.filter((r) => !favoriteIds.has(r.id));
-          }
-        } catch (err) {
-          console.error("Failed to fetch recommendations", err);
-        }
-      }
-
-      // 6. Shuffle fallback list
-      fallbacks = fisherYatesShuffle(fallbacks);
-
-      // 7. Construct the available pool
-      let planPool: Recipe[] = [...favorites, ...fallbacks];
-
-      // 8. If planPool.length < 21, use local recipes as fallback-fallback
-      if (planPool.length < 21) {
-        const usedIds = new Set(planPool.map((r) => r.id));
-        const localFallbacks = recipes.filter((r) => !usedIds.has(r.id));
-        planPool = [...planPool, ...localFallbacks];
-        
-        // If still not enough, allow repeats only after exhausting all unique recipes
-        if (planPool.length < 21) {
-          const uniqueRecipes = [...planPool];
-          while (planPool.length < 21) {
-            planPool.push(...uniqueRecipes);
-          }
-          planPool = planPool.slice(0, 21);
-        }
-      }
-
-      // 9. Create 21-item meal list using Fisher-Yates shuffle
-      // Ensure no duplicates until it's impossible to avoid
-      const mealList: Recipe[] = [];
-      const usedIds = new Set<string>();
-      const shuffledPool = fisherYatesShuffle(planPool);
-
-      for (const recipe of shuffledPool) {
-        if (mealList.length >= 21) break;
-        
-        // Try to avoid duplicates
-        if (!usedIds.has(recipe.id) || mealList.length >= planPool.length) {
-          mealList.push(recipe);
-          usedIds.add(recipe.id);
-        }
-      }
-
-      // Fill remaining slots if needed (unavoidable duplicates)
-      while (mealList.length < 21) {
-        const randomRecipe = shuffledPool[Math.floor(Math.random() * shuffledPool.length)];
-        mealList.push(randomRecipe);
-      }
-
-      // Final shuffle of the meal list
-      const finalMealList = fisherYatesShuffle(mealList.slice(0, 21));
-
-      // 10. Map the 21 items to the weekly grid
-      let mealIndex = 0;
-      for (const day of days) {
-        for (const meal of meals) {
-          if (mealIndex < finalMealList.length) {
-            plan[day][meal] = finalMealList[mealIndex];
-            mealIndex++;
-          } else {
-            // Fallback to local recipes if somehow we don't have enough
-            plan[day][meal] = recipes[mealIndex % recipes.length];
-            mealIndex++;
-          }
-        }
-      }
-
-      return plan;
-    } catch (err) {
-      console.error("Error generating personalized meal plan", err);
-      // Fallback to random plan on error
-      return generateRandomMealPlan();
-    }
-  }
-
-  // 🔄 Function to generate a random plan (fallback)
-  function generateRandomMealPlan() {
-    const shuffled = [...recipes].sort(() => Math.random() - 0.5);
-    let index = 0;
-    const plan: Record<string, Record<string, Recipe>> = {};
-
-    for (const day of days) {
-      plan[day] = {};
-      for (const meal of meals) {
-        plan[day][meal] = shuffled[index % shuffled.length];
-        index++;
-      }
-    }
-    return plan;
   }
 
   // Load meal plan from backend on mount
@@ -307,30 +97,31 @@ export function MealPlan() {
         try {
           const token = await user.getIdToken();
           const res = await fetch("http://localhost:5000/meal-plan", {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           });
 
           if (res.ok) {
             const data = await res.json();
             if (data.plan) {
-              setMealPlan(data.plan);
+              const normalized: Record<string, Record<string, Recipe | null>> = {};
+              for (const [dayKey, mealsObj] of Object.entries(data.plan || {})) {
+                normalized[dayKey] = {};
+                for (const [mealKey, r] of Object.entries(mealsObj as any)) {
+                  normalized[dayKey][mealKey] = r ? transformRecipe(r) : null;
+                }
+              }
+              setMealPlan(normalized);
             } else {
-              // If no plan in response, generate one
-              await handleGenerateNewPlan(user.uid, token);
+              // fallback to local recipes
+              setMealPlan(generateRandomMealPlan());
             }
           } else if (res.status === 404) {
-            // No plan exists, generate one
-            await handleGenerateNewPlan(user.uid, token);
+            setMealPlan(generateRandomMealPlan());
           } else {
-            console.error("Failed to load meal plan");
-            // Fallback to random plan on error
             setMealPlan(generateRandomMealPlan());
           }
         } catch (err) {
           console.error("Error loading meal plan", err);
-          // Fallback to random plan on error
           setMealPlan(generateRandomMealPlan());
         } finally {
           setLoading(false);
@@ -343,66 +134,194 @@ export function MealPlan() {
     return () => unsubscribe();
   }, []);
 
-  // Helper function to generate new plan via backend
-  async function handleGenerateNewPlan(uid: string, token: string) {
+  // Simple random plan fallback
+  function generateRandomMealPlan() {
+    const shuffled = [...recipes].sort(() => Math.random() - 0.5);
+    let index = 0;
+    const plan: Record<string, Record<string, Recipe | null>> = {};
+    for (const day of days) {
+      plan[day] = {};
+      for (const meal of meals) {
+        plan[day][meal] = shuffled[index % shuffled.length];
+        index++;
+      }
+    }
+    return plan;
+  }
+
+  // Call backend to delete the slot, then mark pending replacement
+  const handleDeleteRecipe = async (day: string, meal: string) => {
+    const user = auth.currentUser;
+    if (!user) {
+      // still toggle pending locally
+      setPendingReplacements((p) => new Set(p).add(slotKey(day, meal)));
+      return;
+    }
+
     try {
-      const res = await fetch("http://localhost:5000/meal-plan/generate", {
+      const token = await user.getIdToken();
+      const res = await fetch("http://localhost:5000/meal-plan/delete", {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ day, meal }),
+      });
+
+      if (res.ok) {
+        // update local state: set slot to null
+        setMealPlan((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            [day]: {
+              ...prev[day],
+              [meal]: null,
+            },
+          };
+        });
+        setPendingReplacements((p) => {
+          const next = new Set(p);
+          next.add(slotKey(day, meal));
+          return next;
+        });
+      } else {
+        const err = await res.json();
+        console.error("Failed to delete slot:", err);
+      }
+    } catch (e) {
+      console.error("Delete request failed", e);
+    }
+  };
+
+  // Open replacement modal and fetch suggestions
+  const openReplacementModal = async (day: string, meal: string) => {
+    setReplacementSlot({ day, meal });
+    setReplacementOpen(true);
+    setSuggestions([]);
+    setSearchResults([]);
+    setSearchQuery("");
+    setSuggestionsLoading(true);
+
+    const user = auth.currentUser;
+    let token = "";
+    if (user) token = await user.getIdToken();
+
+    try {
+      const res = await fetch("http://localhost:5000/meal-plan/replacements", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ day, meal }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        if (data.plan) {
-          setMealPlan(data.plan);
-        } else {
-          setMealPlan(generateRandomMealPlan());
-        }
+        const list = Array.isArray(data.suggestions) ? data.suggestions : data;
+        const transformed = list.map(transformRecipe).filter((r): r is Recipe => r !== null);
+        setSuggestions(transformed);
       } else {
-        console.error("Failed to generate meal plan");
-        setMealPlan(generateRandomMealPlan());
+        console.error("Failed to fetch suggestions");
       }
-    } catch (err) {
-      console.error("Error generating meal plan", err);
-      setMealPlan(generateRandomMealPlan());
+    } catch (e) {
+      console.error("Error fetching suggestions", e);
+    } finally {
+      setSuggestionsLoading(false);
     }
-  }
+  };
 
-  // 🗑️ Delete/replace logic
-  const handleDeleteRecipe = (day: string, meal: string) => {
-    setMealPlan((prev) => {
-      if (!prev) return prev;
-      
-      // Get all recipes currently in use
-      const usedRecipeIds = new Set(
-        Object.values(prev)
-          .flatMap((meals) => Object.values(meals))
-          .map((r) => r.id)
-      );
+  // Search backend /api/search for more recipes
+  const performSearch = async (q: string) => {
+    if (!q || q.trim() === "") {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("q", q);
+      const res = await fetch(`http://localhost:5000/api/search?${params.toString()}`);
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data.recipes ?? [];
+      const transformed = list.map(transformRecipe).filter((r): r is Recipe => r !== null);
+      setSearchResults(transformed);
+    } catch (e) {
+      console.error("Search failed", e);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
 
-      // Find unused recipes
-      const unusedRecipes = recipes.filter((r) => !usedRecipeIds.has(r.id));
+  // When user picks a recipe in modal, call backend add and update local plan
+  const handleSelectReplacement = async (recipe: Recipe) => {
+    if (!replacementSlot) return;
+    const { day, meal } = replacementSlot;
 
-      // If none unused, reset to full list (so we repeat)
-      const pool = unusedRecipes.length > 0 ? unusedRecipes : recipes;
+    const user = auth.currentUser;
+    let token = "";
+    if (user) token = await user.getIdToken();
 
-      // Choose a random new recipe
-      const replacement = pool[Math.floor(Math.random() * pool.length)];
-
-      return {
-        ...prev,
-        [day]: {
-          ...prev[day],
-          [meal]: replacement,
+    try {
+      const res = await fetch("http://localhost:5000/meal-plan/add", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-      };
+        body: JSON.stringify({ day, meal, recipe }),
+      });
+
+      if (res.ok) {
+        // update local plan with the selected recipe
+        setMealPlan((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            [day]: {
+              ...prev[day],
+              [meal]: recipe,
+            },
+          };
+        });
+        // clear pending state and close modal
+        setPendingReplacements((p) => {
+          const next = new Set(p);
+          next.delete(slotKey(day, meal));
+          return next;
+        });
+        setReplacementOpen(false);
+        setReplacementSlot(null);
+      } else {
+        const err = await res.json();
+        console.error("Failed to add replacement:", err);
+      }
+    } catch (e) {
+      console.error("Error adding replacement", e);
+    }
+  };
+
+  // UI handlers
+  const handleTogglePendingReplacement = (day: string, meal: string) => {
+    const k = slotKey(day, meal);
+    setPendingReplacements((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
     });
   };
 
-  const openRecipeDialog = (recipe: Recipe) => {
-    setSelectedRecipe(recipe);
+  // Clicking the refresh (Replace) button opens modal
+  const handleReplaceButtonClick = (day: string, meal: string) => {
+    openReplacementModal(day, meal);
+  };
+
+  const openRecipeDialog = (recipe: Recipe | null) => {
+    if (recipe) setSelectedRecipe(recipe);
   };
 
   const regeneratePlan = async () => {
@@ -411,15 +330,29 @@ export function MealPlan() {
       setLoading(true);
       try {
         const token = await user.getIdToken();
-        await handleGenerateNewPlan(user.uid, token);
+        const res = await fetch("http://localhost:5000/meal-plan/generate", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.plan) {
+            const normalized: Record<string, Record<string, Recipe | null>> = {};
+            for (const [dayKey, mealsObj] of Object.entries(data.plan || {})) {
+              normalized[dayKey] = {};
+              for (const [mealKey, r] of Object.entries(mealsObj as any)) {
+                normalized[dayKey][mealKey] = r ? transformRecipe(r) : null;
+              }
+            }
+            setMealPlan(normalized);
+          }
+        }
       } catch (err) {
         console.error("Error regenerating meal plan", err);
-        setMealPlan(generateRandomMealPlan());
       } finally {
         setLoading(false);
       }
     } else {
-      // Fallback to random if not authenticated
       setMealPlan(generateRandomMealPlan());
     }
   };
@@ -427,13 +360,8 @@ export function MealPlan() {
   return (
     <div className="p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Week Navigation */}
         <div className="flex items-center justify-between mb-6">
-          <select
-            value={selectedWeek}
-            onChange={(e) => setSelectedWeek(e.target.value)}
-            className="px-3 py-2 border rounded-lg bg-background"
-          >
+          <select value={selectedWeek} onChange={(e) => setSelectedWeek(e.target.value)} className="px-3 py-2 border rounded-lg bg-background">
             <option value="current">This Week</option>
             <option value="next">Next Week</option>
             <option value="previous">Previous Week</option>
@@ -445,7 +373,6 @@ export function MealPlan() {
           </Button>
         </div>
 
-        {/* Meal Plan Grid */}
         {loading ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">Loading meal plan...</p>
@@ -456,66 +383,45 @@ export function MealPlan() {
               <div key={day} className="space-y-4">
                 <h3 className="text-center p-3 bg-primary/10 rounded-lg border">{day}</h3>
                 {meals.map((meal) => {
-                  const recipe = mealPlan[day][meal];
-                return (
-                  <Card
-                    key={`${day}-${meal}`}
-                    className="hover:shadow-md transition-shadow relative"
-                  >
-                    <CardContent className="p-3 space-y-2">
-                      <div className="flex justify-between items-center text-xs text-primary uppercase tracking-wide">
-                        {meal}
-                        <Trash2
-                          className="h-4 w-4 text-muted-foreground hover:text-destructive cursor-pointer"
-                          onClick={() => handleDeleteRecipe(day, meal)}
-                        />
-                      </div>
-                      <div
-                        onClick={() => openRecipeDialog(recipe)}
-                        className="cursor-pointer"
-                      >
-                        <ImageWithFallback
-                          src={recipe.image}
-                          alt={recipe.name}
-                          className="w-full h-24 object-cover rounded-md"
-                        />
-                        <h4 className="text-sm line-clamp-2">{recipe.name}</h4>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{recipe.calories} cal</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {recipe.cookTime}
-                          </span>
+                  const recipe = mealPlan[day][meal] ?? null;
+                  const pending = pendingReplacements.has(slotKey(day, meal));
+                  return (
+                    <Card key={`${day}-${meal}`} className="hover:shadow-md transition-shadow relative">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex justify-between items-center text-xs text-primary uppercase tracking-wide">
+                          {meal}
+                          <Trash2
+                            className={`h-4 w-4 ${pending ? "text-primary" : "text-muted-foreground hover:text-destructive"} cursor-pointer`}
+                            onClick={() => handleDeleteRecipe(day, meal)}
+                          />
                         </div>
-                        {/* <div className="flex flex-wrap gap-1 mt-1">
-                          <Badge
-                            variant="secondary"
-                            className="text-[9px] px-1 py-0.5 whitespace-nowrap flex-shrink-0"
-                          >
-                            P: {recipe.protein}g
-                          </Badge>
-                          <Badge
-                            variant="secondary"
-                            className="text-[9px] px-1 py-0.5 whitespace-nowrap flex-shrink-0"
-                          >
-                            C: {recipe.carbs}g
-                          </Badge>
-                          <Badge
-                            variant="secondary"
-                            className="text-[9px] px-1 py-0.5 whitespace-nowrap flex-shrink-0"
-                          >
-                            F: {recipe.fat}g
-                          </Badge>
-                        </div> */}
 
-
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          ))}
+                        {pending || !recipe ? (
+                          <div className="flex items-center justify-center py-6">
+                            <Button variant="ghost" onClick={() => handleReplaceButtonClick(day, meal)} className="flex items-center gap-2">
+                              <RefreshCw className="h-4 w-4" />
+                              Replace
+                            </Button>
+                          </div>
+                        ) : (
+                          <div onClick={() => openRecipeDialog(recipe)} className="cursor-pointer">
+                            <ImageWithFallback src={recipe.image} alt={recipe.name} className="w-full h-24 object-cover rounded-md" />
+                            <h4 className="text-sm line-clamp-2">{recipe.name}</h4>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>{recipe.calories} cal</span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {recipe.cookTime}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         ) : (
           <div className="text-center py-12">
@@ -539,11 +445,7 @@ export function MealPlan() {
 
           {selectedRecipe && (
             <div className="space-y-6">
-              <ImageWithFallback
-                src={selectedRecipe.image}
-                alt={selectedRecipe.name}
-                className="w-full h-48 object-cover rounded-lg"
-              />
+              <ImageWithFallback src={selectedRecipe.image} alt={selectedRecipe.name} className="w-full h-48 object-cover rounded-lg" />
 
               <div className="grid grid-cols-4 gap-4 text-center">
                 <div>
@@ -601,6 +503,66 @@ export function MealPlan() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Replacement Modal */}
+      <Dialog open={replacementOpen} onOpenChange={() => { setReplacementOpen(false); setReplacementSlot(null); }}>
+        <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto p-6">
+          <DialogHeader>
+            <DialogTitle>
+              Replace {replacementSlot ? `${replacementSlot.day} — ${replacementSlot.meal}` : "meal"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Suggestions (top) */}
+            <div>
+              <h4 className="mb-2 text-sm text-muted-foreground">Recommended</h4>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {suggestionsLoading ? (
+                  <div className="text-muted-foreground">Loading suggestions...</div>
+                ) : suggestions.length === 0 ? (
+                  <div className="text-muted-foreground">No recommendations</div>
+                ) : suggestions.map((s) => (
+                  <Card key={s.id} className="w-40 flex-shrink-0 cursor-pointer" onClick={() => handleSelectReplacement(s)}>
+                    <ImageWithFallback src={s.image} alt={s.name} className="w-full h-24 object-cover rounded-t-md" />
+                    <CardContent className="p-2">
+                      <div className="text-xs font-medium line-clamp-2">{s.name}</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{s.calories} cal</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            <hr />
+
+            {/* Search area */}
+            <div>
+              <div className="flex gap-2 mb-3">
+                <Input placeholder="Search recipes..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") performSearch(searchQuery); }} />
+                <Button onClick={() => performSearch(searchQuery)}><SearchIcon className="h-4 w-4" /></Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {searchLoading ? (
+                  <div className="text-muted-foreground">Searching...</div>
+                ) : searchResults.length === 0 ? (
+                  <div className="text-muted-foreground">No results</div>
+                ) : searchResults.map((r) => (
+                  <Card key={r.id} className="cursor-pointer" onClick={() => handleSelectReplacement(r)}>
+                    <ImageWithFallback src={r.image} alt={r.name} className="w-full h-24 object-cover rounded-t-md" />
+                    <CardContent className="p-2">
+                      <div className="text-xs font-medium line-clamp-2">{r.name}</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{r.calories} cal</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+          </div>
         </DialogContent>
       </Dialog>
     </div>
