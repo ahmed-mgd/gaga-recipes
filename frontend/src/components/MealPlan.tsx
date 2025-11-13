@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent } from "./ui/card";
+import { recipes as initialRecipes, recipes } from "./data/recipes.ts";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
