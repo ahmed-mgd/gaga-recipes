@@ -456,6 +456,85 @@ def get_meal_plan():
     except Exception as e:
         return jsonify({"error": f"Failed to retrieve meal plan: {e}"}), 500
 
+    try:
+        favs_ref = db.collection('users').document(uid).collection('favorites')
+        docs = favs_ref.stream()
+        favorited_recipes = [doc.to_dict() for doc in docs]
+
+        days_of_week = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        meals_per_day = ["breakfast", "lunch", "dinner"]
+        required_recipes = len(days_of_week) * len(meals_per_day)
+
+        meal_plan = {day: {} for day in days_of_week}
+        recipe_pool = list(favorited_recipes)
+
+        if len(recipe_pool) < required_recipes and len(favorited_recipes) > 0:
+            num_similar_to_find = required_recipes - len(recipe_pool)
+            seed_recipe = random.choice(favorited_recipes)
+            
+            mlt_query = {
+                "query": {
+                    "more_like_this": {
+                        "fields": ["name", "ingredients"],
+                        "like": [
+                            {
+                                "_index": INDEX_NAME,
+                                "doc": {
+                                    "name": seed_recipe.get("name"),
+                                    "ingredients": seed_recipe.get("ingredients")
+                                }
+                            }
+                        ],
+                        "min_term_freq": 1,
+                        "min_doc_freq": 1
+                    }
+                },
+                "size": num_similar_to_find
+            }
+
+            try:
+                response = client.search(index=INDEX_NAME, body=mlt_query)
+                similar_recipes = [hit['_source'] for hit in response['hits']['hits']]
+                recipe_pool.extend(similar_recipes)
+            except Exception as e:
+                print(f"An error occurred during Elasticsearch search: {e}")
+
+        random.shuffle(recipe_pool)
+        recipe_iterator = iter(recipe_pool)
+
+        for day in days_of_week:
+            for meal in meals_per_day:
+                try:
+                    full_recipe = next(recipe_iterator)
+                    meal_plan[day][meal] = format_recipe_for_display(full_recipe)
+                except StopIteration:
+                    meal_plan[day][meal] = None
+
+        return jsonify({
+            "user_id": uid,
+            "meal_plan": meal_plan
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+
+#helper to trim recipe info can be reused for favorties and such
+def format_recipe_for_display(full_recipe):
+
+    if not full_recipe:
+        return None
+    
+    return {
+        "name": full_recipe.get("name"),
+        "url": full_recipe.get("url"),
+        "img_src": full_recipe.get("img_src"),
+        "prep_time": full_recipe.get("prep_time"),
+        "total_time": full_recipe.get("total_time"),
+        "calories": full_recipe.get("calories"),
+        "protein_grams": full_recipe.get("protein_grams"),
+        "fat_grams": full_recipe.get("fat_grams"),
+        "carbs_grams": full_recipe.get("carbs_grams"),
+    }
 
 if __name__ == '__main__':
     app.run()
