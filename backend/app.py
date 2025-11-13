@@ -583,6 +583,120 @@ def delete_meal_from_plan():
     except Exception as e:
         return jsonify({"error": f"Failed to delete meal from plan: {e}"}), 500
 
+@app.route('/meal-plan/replacements', methods=['POST'])
+def suggest_recipes_for_slot():
+    """
+    Suggest 3 recipes to replace a single meal slot for the authenticated user.
+    Request JSON:
+      {
+        "day": "Monday",
+        "meal": "Lunch",
+      }
+    """
+    if not db:
+        return jsonify({"error": "Firebase not initialized"}), 500
+
+    try:
+        payload = request.get_json(force=True)
+    except Exception:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    if not payload:
+        return jsonify({"error": "Missing request body"}), 400
+
+    day = payload.get("day")
+    meal = payload.get("meal")
+    if not day or not meal:
+        return jsonify({"error": "Both 'day' and 'meal' fields are required"}), 400
+
+    # auth token from header or body
+    auth_header = request.headers.get('Authorization', '')
+    id_token = None
+    if auth_header.startswith('Bearer '):
+        id_token = auth_header.split(' ', 1)[1]
+    else:
+        id_token = payload.get('idToken') if isinstance(payload, dict) else None
+
+    if not id_token:
+        return jsonify({"error": "Missing Authorization token"}), 401
+
+    try:
+        decoded = auth.verify_id_token(id_token)
+        uid = decoded.get('uid') or decoded.get('sub')
+        if not uid:
+            return jsonify({"error": "Could not identify user from token"}), 401
+    except Exception as e:
+        return jsonify({"error": f"Invalid auth token: {e}"}), 401
+
+    try:
+        # Load saved plan if present to determine currently used recipe ids for that day
+        doc_ref = db.collection('users').document(uid).collection('meal_plan').document('current')
+        doc = doc_ref.get()
+        used_ids = set()
+        day_block = {}
+        if doc.exists:
+            doc_data = doc.to_dict() or {}
+            plan = doc_data.get('plan', {}) if isinstance(doc_data.get('plan', {}), dict) else {}
+            # find canonical day key (case-insensitive)
+            day_key = next((k for k in plan.keys() if str(k).strip().lower() == str(day).strip().lower()), None)
+            if day_key:
+                day_block = plan.get(day_key) or {}
+                # Collect ids used in that day (so we don't suggest duplicates)
+                for _, r in (day_block.items() if isinstance(day_block, dict) else []):
+                    try:
+                        if isinstance(r, dict) and r.get("id"):
+                            used_ids.add(r.get("id"))
+                    except Exception:
+                        continue
+
+        # Also consider favorites we should prioritize
+        favorites = get_favorite_recipes(uid) if db else []
+        suggestions = []
+        seen = set()
+
+        # Pick favorites first (exclude those already used in the day)
+        for fav in favorites:
+            if not fav:
+                continue
+            fid = fav.get("id")
+            if not fid or fid in used_ids or fid in seen:
+                continue
+            suggestions.append(fav)
+            seen.add(fid)
+            if len(suggestions) >= 3:
+                break
+
+        # If not enough, fill using fallback recipes (Elasticsearch) respecting user's macros
+        if len(suggestions) < 3:
+            # get user macros if present
+            user_doc = db.collection('users').document(uid).get()
+            macros = {}
+            if user_doc.exists:
+                user_data = user_doc.to_dict() or {}
+                macros = user_data.get('macros', {}) if isinstance(user_data.get('macros', {}), dict) else {}
+
+            # Exclude favorites already selected and used ids
+            exclude_ids = set(used_ids) | seen
+
+            needed = 3 - len(suggestions)
+            fallbacks = get_fallback_recipes(macros, needed, exclude_ids=exclude_ids)
+            for fb in fallbacks:
+                if not fb:
+                    continue
+                fid = fb.get("id")
+                if fid and fid in seen:
+                    continue
+                suggestions.append(fb)
+                if fid:
+                    seen.add(fid)
+                if len(suggestions) >= 3:
+                    break
+
+        return jsonify({"status": "success", "suggestions": suggestions}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to compute suggestions: {e}"}), 500
+
 
 @app.route('/meal-plan', methods=['GET'])
 def get_meal_plan():
