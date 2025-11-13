@@ -1,17 +1,63 @@
 # Python
 backend/venv/
+backend/env/
+backend/.venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
 
 # Node
 node_modules/
 frontend/node_modules/
 frontend/build/
-.DS_Store
+frontend/dist/
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 package-lock.json
 frontend/package-lock.json
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+
 # Firebase credentials
 team-gaga-recipes-firebase-adminsdk-fbsvc-efc7c23d45.json
-.env
+*-firebase-adminsdk-*.json
+backend/serviceAccountKey.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Elasticsearch
+*.es_backup
