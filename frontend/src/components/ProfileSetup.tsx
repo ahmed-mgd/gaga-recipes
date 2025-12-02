@@ -85,7 +85,7 @@ export function ProfileSetup() {
     console.log("Sending payload to backend:", payload);
 
     // --- Call backend ---
-    const res = await fetch("http://localhost:5000/calculate_macros", {
+    const res = await fetch("http://localhost:8000/calculate_macros", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)

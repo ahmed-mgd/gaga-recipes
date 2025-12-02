@@ -6,6 +6,7 @@ import { MealPlan } from "./components/MealPlan";
 import { RecipeSearch } from "./components/RecipeSearch";
 import { AuthScreen } from "./components/AuthScreen";
 import { Settings } from "./components/Settings";
+import { Favorites } from "./components/Favorites";
 import NotFound from "./components/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="meal-plan" element={<MealPlan />} />
           <Route path="recipes" element={<RecipeSearch />} />
+          <Route path="favorites" element={<Favorites />} />
           <Route path="settings" element={<Settings />} />
         </Route>
 

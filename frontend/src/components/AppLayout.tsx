@@ -10,6 +10,7 @@ import {
   Settings, 
   LogOut,
   Menu,
+  Heart,
   X
 } from "lucide-react";
 
@@ -23,6 +24,7 @@ export function AppLayout({}: AppLayoutProps) {
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "favorites", label: "Favorites", icon: Heart },
     { id: "recipes", label: "Recipes", icon: BookOpen },
     { id: "meal-plan", label: "Meal Plan", icon: Calendar },
     { id: "settings", label: "Settings", icon: Settings }
@@ -32,6 +34,7 @@ export function AppLayout({}: AppLayoutProps) {
     switch(currentScreen) {
       case "dashboard": return "Dashboard";
       case "recipes": return "Recipe Search";
+      case "favorites": return "Favorites";
       case "meal-plan": return "Weekly Meal Plan";
       case "settings": return "Settings";
       default: return "Recipe App";

@@ -116,7 +116,7 @@ export function Settings() {
       // --- 1️⃣ Send profile data to backend to calculate macros ---
       console.log("Sending profile data to backend:", profileData);
 
-      const response = await fetch("http://localhost:5000/calculate_macros", {
+      const response = await fetch("http://localhost:8000/calculate_macros", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
