@@ -64,7 +64,7 @@ export function Favorites() {
       }
       try {
         const token = await user.getIdToken();
-        const res = await fetch("http://localhost:8000/favorites", {
+        const res = await fetch("http://localhost:5000/favorites", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) {
@@ -97,7 +97,7 @@ export function Favorites() {
     if (!user) return;
     try {
       const token = await user.getIdToken();
-      const res = await fetch(`http://localhost:8000/favorites/${encodeURIComponent(recipeId)}`, {
+      const res = await fetch(`http://localhost:5000/favorites/${encodeURIComponent(recipeId)}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

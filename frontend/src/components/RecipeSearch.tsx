@@ -53,7 +53,7 @@ export function RecipeSearch() {
       if (user) {
         try {
           const token = await user.getIdToken();
-          const res = await fetch("http://localhost:8000/favorites", {
+          const res = await fetch("http://localhost:5000/favorites", {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -103,7 +103,7 @@ export function RecipeSearch() {
 
       if (isCurrentlySaved) {
         // Remove from favorites
-        const res = await fetch(`http://localhost:8000/favorites?url=${encodeURIComponent(url)}`, {
+        const res = await fetch(`http://localhost:5000/favorites?url=${encodeURIComponent(url)}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -122,7 +122,7 @@ export function RecipeSearch() {
         }
       } else {
         // Add to favorites
-        const res = await fetch("http://localhost:8000/add_recipe", {
+        const res = await fetch("http://localhost:5000/add_recipe", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -175,7 +175,7 @@ export function RecipeSearch() {
       if (minCalories > 0) params.set("min_calories", String(minCalories));
       if (maxCalories > 0) params.set("max_calories", String(maxCalories));
 
-      const res = await fetch(`http://localhost:8000/api/search?${params.toString()}`);
+      const res = await fetch(`http://localhost:5000/api/search?${params.toString()}`);
       const data = await res.json();
       if (Array.isArray(data)) setResults(data);
       else if (data?.recipes && Array.isArray(data.recipes)) setResults(data.recipes);
