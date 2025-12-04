@@ -122,7 +122,7 @@ export function RecipeSearch() {
         }
       } else {
         // Add to favorites
-        const res = await fetch("http://localhost:5000/add_recipe", {
+        const res = await fetch("http://localhost:5000/favorites/add_recipe", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

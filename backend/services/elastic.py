@@ -1,4 +1,3 @@
-# elastic.py
 import os
 from data_processing import load_and_process_recipes
 from elasticsearch import Elasticsearch
@@ -9,27 +8,9 @@ load_dotenv()
 
 ES_HOST = "http://localhost:9200"
 ES_API_KEY = os.getenv("ES_API_KEY")
-
-try:
-    client = Elasticsearch(
-        ES_HOST,
-        api_key=ES_API_KEY
-    )
-    if not client.ping():
-        raise ConnectionError("couldnt connect")
-    print("Elasticsearch client connected!")
-
-except ConnectionError as e:
-    print(f"Connection failed: {e}")
-    # We exit here if we're running this file directly
-    # If app.py imports this, it will just have a 'None' client
-    pass 
-except Exception as e:
-    print(f"An unexpected error occurred: {e}")
-    pass
-
-
+client = None
 INDEX_NAME = "recipes"
+
 MAPPING = {
     # ... (your mapping is correct, no changes needed) ...
     "properties": {
@@ -53,6 +34,27 @@ MAPPING = {
         "img_src": {"type": "keyword"}
     }
 }
+
+def init_elastic():
+    global client, INDEX_NAME
+    try:
+        client = Elasticsearch(
+            ES_HOST,
+            api_key=ES_API_KEY
+        )
+        if not client.ping():
+            raise ConnectionError("couldnt connect")
+        print("Elasticsearch client connected!")
+        return client, INDEX_NAME
+
+    except ConnectionError as e:
+        print(f"Connection failed: {e}")
+        # We exit here if we're running this file directly
+        # If app.py imports this, it will just have a 'None' client
+        pass 
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        pass
 
 
 # This special block only runs when you execute: python3 elastic.py
