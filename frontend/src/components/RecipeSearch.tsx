@@ -211,6 +211,21 @@ export function RecipeSearch() {
     setMaxCalories(next);
   };
 
+  // Watch recipe on YouTube
+  const watchRecipe = async (name: string) => {
+    try {
+      const url = `https://ek-pineapple.app.n8n.cloud/webhook/ytb-lookup?dish=${encodeURIComponent(name)}`;
+      console.log("Sending request to:", url);
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (err) {
+      console.error("Failed to fetch YouTube URL", err);
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil(results.length / PER_PAGE));
   const displayed = results.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
@@ -491,6 +506,15 @@ export function RecipeSearch() {
                     ))}
                   </ol>
                 </div>
+              </div>
+
+              <div className="flex justify-center pt-4">
+                <Button
+                  onClick={() => watchRecipe(selectedRecipe.name || "")}
+                  className="w-full sm:w-auto"
+                >
+                  Watch on YouTube 🎥
+                </Button>
               </div>
             </div>
           )}

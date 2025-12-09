@@ -405,6 +405,21 @@ export function MealPlan() {
     setSelectedRecipe(recipe);
   };
 
+  // Watch recipe on YouTube
+  const watchRecipe = async (name: string) => {
+    try {
+      const url = `https://ek-pineapple.app.n8n.cloud/webhook/ytb-lookup?dish=${encodeURIComponent(name)}`;
+      console.log("Sending request to:", url);
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (err) {
+      console.error("Failed to fetch YouTube URL", err);
+    }
+  };
+
   const regeneratePlan = async () => {
     const user = auth.currentUser;
     if (user) {
@@ -508,7 +523,6 @@ export function MealPlan() {
                           </Badge>
                         </div> */}
 
-
                       </div>
                     </CardContent>
                   </Card>
@@ -598,6 +612,15 @@ export function MealPlan() {
                     ))}
                   </ol>
                 </div>
+              </div>
+
+              <div className="flex justify-center pt-4">
+                <Button
+                  onClick={() => watchRecipe(selectedRecipe.name)}
+                  className="w-full sm:w-auto"
+                >
+                  Watch on YouTube 🎥
+                </Button>
               </div>
             </div>
           )}
