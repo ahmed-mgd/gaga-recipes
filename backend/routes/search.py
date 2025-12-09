@@ -1,5 +1,12 @@
 from flask import Blueprint, jsonify, request, current_app as app
+
 bp = Blueprint("search", __name__)
+
+ALLERGEN_MAP = {
+    'dairy': ['milk', 'cheese', 'cream', 'butter', 'yogurt', 'whey', 'ghee'],
+    'nuts': ['peanut', 'almond', 'walnut', 'cashew', 'pecan', 'hazelnut', 'pistachio', 'macadamia'],
+    'shellfish': ['shrimp', 'crab', 'lobster', 'clam', 'mussel', 'oyster', 'scallop']
+}
 
 @bp.route("/search")
 def search_recipes():
@@ -7,9 +14,13 @@ def search_recipes():
         return jsonify({"error": "Elasticsearch not initialized"}), 500
     
     query = request.args.get('q', "")
+    exclude_param = request.args.get('exclude', "")
     min_protein = request.args.get('min_protein', type=float)
     min_calories = request.args.get('min_calories', type=float)
     max_calories = request.args.get('max_calories', type=float)
+    max_carbs = request.args.get('max_carbs', type=float)
+    max_fat = request.args.get('max_fat', type=float)
+    max_sugar = request.args.get('max_sugar', type=float)
 
     try:
         must_clauses = []
@@ -23,6 +34,24 @@ def search_recipes():
             })
         else:
             must_clauses.append({"match_all": {}})
+
+        must_not_clauses = []
+        if exclude_param:
+            exclusions = [e.strip().lower() for e in exclude_param.split(',')]
+            for exclusion in exclusions:
+                if exclusion in ALLERGEN_MAP:
+                    for item in ALLERGEN_MAP[exclusion]:
+                        must_not_clauses.append({
+                            "match": {
+                                "ingredients": item
+                            }
+                        })
+                else:
+                    must_not_clauses.append({
+                        "match": {
+                            "ingredients": exclusion
+                        }
+                    })
 
         filters = []
 
@@ -40,11 +69,21 @@ def search_recipes():
         if calories_range:
             filters.append({"range": {"calories": calories_range}})
 
+        if max_carbs is not None:
+            filters.append({"range": {"carbs_grams": {"lte": max_carbs}}})
+
+        if max_fat is not None:
+            filters.append({"range": {"fat_grams": {"lte": max_fat}}})
+
+        if max_sugar is not None:
+            filters.append({"range": {"sugar_grams": {"lte": max_sugar}}})
+
         search_body = {
             "query": {
                 "bool": {
                     "must": must_clauses,
-                    "filter": filters
+                    "filter": filters,
+                    "must_not": must_not_clauses
                 }
             }
         }
