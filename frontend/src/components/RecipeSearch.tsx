@@ -77,7 +77,7 @@ export function RecipeSearch() {
     });
 
     // Initial sample fetch
-    fetchResults("a");
+    fetchResults("");
 
     return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -161,12 +161,6 @@ export function RecipeSearch() {
   };
 
   const fetchResults = async (q: string) => {
-    if (!q || q.trim() === "") {
-      setResults([]);
-      setPage(1);
-      return;
-    }
-
     setLoading(true);
     try {
       const params = new URLSearchParams();

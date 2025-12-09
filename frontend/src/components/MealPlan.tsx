@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Card, CardContent } from "./ui/card";
 import { recipes } from "./data/recipes";
 import { Button } from "./ui/button";
@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import {
   Clock,
-  Users,
+  BarChart3,
   ChefHat,
   Trash2,
   RefreshCw,
@@ -70,6 +70,14 @@ export function MealPlan() {
   const [searchResults, setSearchResults] = useState<Recipe[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [macrosModalOpen, setMacrosModalOpen] = useState(false);
+  const [selectedDayMacros, setSelectedDayMacros] = useState<{
+    day: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  } | null>(null);
 
   // Helpers
   const slotKey = (day: string, meal: string) => `${day}::${meal}`;
@@ -422,6 +430,60 @@ export function MealPlan() {
     }
   };
 
+  // Memoize daily totals so they recompute whenever mealPlan changes
+  const dailyTotals = useMemo(() => {
+    if (!mealPlan) return {};
+
+    const totals: Record<
+      string,
+      {
+        calories: number;
+        protein: number;
+        carbs: number;
+        fat: number;
+      }
+    > = {};
+
+    for (const day of days) {
+      let calories = 0;
+      let protein = 0;
+      let carbs = 0;
+      let fat = 0;
+
+      const dayMeals = mealPlan[day];
+      if (dayMeals) {
+        Object.values(dayMeals).forEach((recipe) => {
+          if (recipe) {
+            calories += recipe.calories || 0;
+            protein += recipe.protein || 0;
+            carbs += recipe.carbs || 0;
+            fat += recipe.fat || 0;
+          }
+        });
+      }
+
+      totals[day] = {
+        calories: Math.round(calories),
+        protein: Math.round(protein),
+        carbs: Math.round(carbs),
+        fat: Math.round(fat),
+      };
+    }
+
+    return totals;
+  }, [mealPlan, days]);
+
+  const handleShowDayMacros = (day: string) => {
+    const totals = dailyTotals[day] || {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+    };
+    setSelectedDayMacros({ day, ...totals });
+    setMacrosModalOpen(true);
+  };
+
   return (
     <div className="p-6">
       <div className="max-w-7xl mx-auto">
@@ -448,73 +510,88 @@ export function MealPlan() {
           </div>
         ) : mealPlan ? (
           <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
-            {days.map((day) => (
-              <div key={day} className="space-y-4">
-                <h3 className="text-center p-3 bg-primary/10 rounded-lg border">
-                  {day}
-                </h3>
-                {meals.map((meal) => {
-                  const recipe = mealPlan[day][meal] ?? null;
-                  const pending = pendingReplacements.has(slotKey(day, meal));
-                  return (
-                    <Card
-                      key={`${day}-${meal}`}
-                      className="hover:shadow-md transition-shadow relative"
+            {days.map((day) => {
+              const dayTotals = dailyTotals[day] || {
+                calories: 0,
+                protein: 0,
+                carbs: 0,
+                fat: 0,
+              };
+              return (
+                <div key={day} className="space-y-4">
+                  <div className="text-center p-3 bg-primary/10 rounded-lg border space-y-1">
+                    <h3 className="font-semibold">{day}</h3>
+                    <div
+                      className="flex items-center justify-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => handleShowDayMacros(day)}
                     >
-                      <CardContent className="p-3 space-y-2">
-                        <div className="flex justify-between items-center text-xs text-primary uppercase tracking-wide">
-                          {meal}
-                          <Trash2
-                            className={`h-4 w-4 ${
-                              pending
-                                ? "text-primary"
-                                : "text-muted-foreground hover:text-destructive"
-                            } cursor-pointer`}
-                            onClick={() => handleDeleteRecipe(day, meal)}
-                          />
-                        </div>
-
-                        {pending || !recipe ? (
-                          <div className="flex items-center justify-center py-6">
-                            <Button
-                              variant="ghost"
-                              onClick={() =>
-                                handleReplaceButtonClick(day, meal)
-                              }
-                              className="flex items-center gap-2"
-                            >
-                              <RefreshCw className="h-4 w-4" />
-                              Replace
-                            </Button>
-                          </div>
-                        ) : (
-                          <div
-                            onClick={() => openRecipeDialog(recipe)}
-                            className="cursor-pointer"
-                          >
-                            <ImageWithFallback
-                              src={recipe.image}
-                              alt={recipe.name}
-                              className="w-full h-24 object-cover rounded-md"
+                      <span>{dayTotals.calories} cal</span>
+                      <BarChart3 className="h-4 w-4 text-primary" />
+                    </div>
+                  </div>
+                  {meals.map((meal) => {
+                    const recipe = mealPlan[day][meal] ?? null;
+                    const pending = pendingReplacements.has(slotKey(day, meal));
+                    return (
+                      <Card
+                        key={`${day}-${meal}`}
+                        className="hover:shadow-md transition-shadow relative"
+                      >
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex justify-between items-center text-xs text-primary uppercase tracking-wide">
+                            {meal}
+                            <Trash2
+                              className={`h-4 w-4 ${
+                                pending
+                                  ? "text-primary"
+                                  : "text-muted-foreground hover:text-destructive"
+                              } cursor-pointer`}
+                              onClick={() => handleDeleteRecipe(day, meal)}
                             />
-                            <h4 className="text-sm line-clamp-2">
-                              {recipe.name}
-                            </h4>
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                              <span>{recipe.calories} cal</span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {recipe.cookTime}
-                              </span>
-                            </div>
                           </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            ))}
+
+                          {pending || !recipe ? (
+                            <div className="flex items-center justify-center py-6">
+                              <Button
+                                variant="ghost"
+                                onClick={() =>
+                                  handleReplaceButtonClick(day, meal)
+                                }
+                                className="flex items-center gap-2"
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                                Replace
+                              </Button>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => openRecipeDialog(recipe)}
+                              className="cursor-pointer"
+                            >
+                              <ImageWithFallback
+                                src={recipe.image}
+                                alt={recipe.name}
+                                className="w-full h-24 object-cover rounded-md"
+                              />
+                              <h4 className="text-sm line-clamp-2">
+                                {recipe.name}
+                              </h4>
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>{recipe.calories} cal</span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {recipe.cookTime}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-12">
@@ -530,13 +607,10 @@ export function MealPlan() {
       >
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {selectedRecipe?.name}
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Users className="h-4 w-4" />
-                {selectedRecipe?.servings} servings
-              </div>
-            </DialogTitle>
+            <DialogTitle>{selectedRecipe?.name}</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {selectedRecipe?.servings} servings
+            </p>
           </DialogHeader>
 
           {selectedRecipe && (
@@ -723,6 +797,65 @@ export function MealPlan() {
               </div>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Daily Macros Modal */}
+      <Dialog open={macrosModalOpen} onOpenChange={setMacrosModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedDayMacros?.day} - Daily Totals</DialogTitle>
+          </DialogHeader>
+          {selectedDayMacros && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <div className="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                    Calories
+                  </div>
+                  <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                    {selectedDayMacros.calories}
+                  </div>
+                  <div className="text-xs text-orange-600 dark:text-orange-400">
+                    kcal
+                  </div>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                    Protein
+                  </div>
+                  <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                    {selectedDayMacros.protein}
+                  </div>
+                  <div className="text-xs text-blue-600 dark:text-blue-400">
+                    g
+                  </div>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="text-sm text-green-600 dark:text-green-400 font-medium">
+                    Carbs
+                  </div>
+                  <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                    {selectedDayMacros.carbs}
+                  </div>
+                  <div className="text-xs text-green-600 dark:text-green-400">
+                    g
+                  </div>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <div className="text-sm text-purple-600 dark:text-purple-400 font-medium">
+                    Fat
+                  </div>
+                  <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                    {selectedDayMacros.fat}
+                  </div>
+                  <div className="text-xs text-purple-600 dark:text-purple-400">
+                    g
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
